@@ -81,7 +81,7 @@ const Fx = {
       const y = u * u * a.y + 2 * u * f * cy + f * f * b.y;
       dot.setAttribute('cx', x); dot.setAttribute('cy', y);
       g.setAttribute('opacity', f > 0.88 ? (1 - f) / 0.12 : 1);
-    }, null, () => g.remove());
+    }, null, () => { g.remove(); if (opts.onArrive) opts.onArrive(); });
   },
 
   /** Fan out from one source to many targets, slightly staggered. */
@@ -90,6 +90,22 @@ const Fx = {
     const stagger = opts.stagger || 60;
     targets.forEach((t, i) => {
       setTimeout(() => this.packet(from, t, kind, opts), i * stagger);
+    });
+  },
+
+  /** Many sources into one target — the mirror of broadcast().
+   *
+   * This is the REPORTING leg: witnesses filing what they saw to the serving RSU. Without
+   * it the map showed the accusation arriving and the witnesses observing, but never the
+   * evidence actually reaching the RSU, which is the step the whole defence acts on.
+   * `opts.onArrive` fires per packet so the RSU's buffer can count up as they land.
+   */
+  collect(sources, to, kind, opts = {}) {
+    if (!this.enabled) return;
+    const stagger = opts.stagger || 60;
+    const delay = opts.delay || 0;
+    sources.forEach((src, i) => {
+      setTimeout(() => this.packet(src, to, kind, opts), delay + i * stagger);
     });
   },
 

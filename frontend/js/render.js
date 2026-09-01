@@ -93,7 +93,8 @@ const Render = {
     el('circle', { class: 'rsu-win', cx: 0, cy: -3, r: 15 }, s);
     // "N rpts" pill
     const pill = el('g', { class: 'rsu-buf' }, s);
-    el('rect', { x: -13, y: -30, width: 26, height: 11, rx: 5.5 }, pill);
+    // Wide enough for the reconciled "9T/3F" form, not just a bare count.
+    el('rect', { x: -19, y: -30, width: 38, height: 11, rx: 5.5 }, pill);
     el('text', { x: 0, y: -22, 'text-anchor': 'middle' }, pill).textContent = '0';
     el('text', { class: 'rsu-label', x: 0, y: 22, 'text-anchor': 'middle' }, s)
       .textContent = 'R' + id;

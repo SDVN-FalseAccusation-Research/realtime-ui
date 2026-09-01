@@ -122,12 +122,20 @@ const World = {
   showRange(i, on) { this.mark(i, 'range', on); },
 
   setRsuState(i, state) { const e = this.rsuEl(i); if (e) e.setAttribute('data-state', state); },
-  setRsuBuffer(i, n) {
+  /** The RSU's report buffer pill.
+   *
+   * `split` is the AUTHORITATIVE true/false breakdown from _decisions.csv, supplied once
+   * the verdict arrives. Until then the count is the number of report packets seen to land,
+   * which is derived from geometry — the simulator never emits reporter identities. The two
+   * numbers can differ, and when they do the CSV wins.
+   */
+  setRsuBuffer(i, n, split = null) {
     const e = this.rsuEl(i);
     if (!e) return;
     const t = e.querySelector('.rsu-buf text');
-    if (t) t.textContent = n;
-    e.classList.toggle('has-buf', n > 0);
+    if (t) t.textContent = split ? `${split.t}T/${split.f}F` : n;
+    e.classList.toggle('has-buf', (split ? split.t + split.f : n) > 0);
+    e.classList.toggle('buf-final', !!split);
   },
   setCtrlState(i, state) { const e = this.ctrlEl(i); if (e) e.setAttribute('data-state', state); },
 

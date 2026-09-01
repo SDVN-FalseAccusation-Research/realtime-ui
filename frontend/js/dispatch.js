@@ -155,10 +155,19 @@ const Dispatch = {
         wits.forEach(w => World.mark(w.id, 'reporter'));
         if (rsu) {
           Fx.packet({ v: a }, { r: rsu.id }, 'accuse', { dur: 800, arc: 0.18 });
+          // 1. the witnesses observe the victim...
           Fx.broadcast({ v: v }, wits.map(w => ({ v: w.id })), 'observe',
                        { dur: 600, arc: 0.1, stagger: 45 });
           Fx.rsuWindow(rsu.id, Number(this.cfg.evalWindow) || 3);
-          World.setRsuBuffer(rsu.id, wits.length);
+
+          // 2. ...then FILE what they saw to the serving RSU, which is the step the
+          // defence actually acts on and the one the map never showed. The buffer counts
+          // up as each report lands, so the RSU visibly fills before it decides.
+          World.setRsuBuffer(rsu.id, 0);
+          let landed = 0;
+          Fx.collect(wits.map(w => ({ v: w.id })), { r: rsu.id }, 'report',
+                     { dur: 700, arc: 0.14, stagger: 55, delay: 620,
+                       onArrive: () => World.setRsuBuffer(rsu.id, ++landed) });
         }
       } else {
         wits.forEach(w => World.mark(w.id, 'reporter'));
@@ -183,6 +192,12 @@ const Dispatch = {
           `<span class="bad">${ev.reports.false}F</span>`);
         Sidebar.verdict(accepted, ev.stopped_by);
         Ribbon.set('rsu', 'done', `${ev.reports.true + ev.reports.false} rpts`);
+        // The buffer was counting geometrically-inferred reporters; _decisions.csv knows
+        // how many reports the RSU actually took and how they split. Correct it.
+        if (cur._rsu != null) {
+          World.setRsuBuffer(cur._rsu, ev.reports.true + ev.reports.false,
+                             { t: ev.reports.true, f: ev.reports.false });
+        }
         Ribbon.set('outcome', accepted ? 'failed' : 'blocked',
                    accepted ? 'ACCEPTED' : 'BLOCKED');
 
