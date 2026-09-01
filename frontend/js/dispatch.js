@@ -20,6 +20,7 @@ const Dispatch = {
   roles: { attackers: [], misbehavers: [] },
   counts: { total: 0, accepted: 0, blocked: 0 },
   current: null,          // the accusation being shown
+  layers: {},             // event id -> { zkp|gnn|llm|... : event }  (imported/P8 runs)
   pipeline: [],
   ledger: [],
   seen: new Set(),        // decision event ids already applied (back-fill guard)
@@ -28,6 +29,7 @@ const Dispatch = {
     this.cursor = 0;
     this.counts = { total: 0, accepted: 0, blocked: 0 };
     this.current = null;
+    this.layers = {};
     this.pipeline = [];
     this.ledger = [];
     this.seen.clear();
@@ -177,13 +179,28 @@ const Dispatch = {
         // behaviour rather than a miss.
         const L = ev.latency_us || {};
         const rows = [];
+        const seen = this.layers[ev.event] || {};
         const add = (key, name, on) => {
           if (!on) return;
           const us = L[key] || 0;
-          rows.push({ name, status: us > 0 ? 'ran' : 'skipped',
-                      value: us > 0 ? `${(us / 1000).toFixed(1)} ms` : 'not run' });
-          Ribbon.set(key, us > 0 ? 'done' : 'skipped',
-                     us > 0 ? `${(us / 1000).toFixed(1)} ms` : 'skipped');
+          const lay = seen[key];
+          // A real verdict beats inferring "it ran" from a non-zero latency. Where the
+          // layer genuinely did not run — the GNN on a control-plane attack, which fails
+          // the ZK gate first — both agree, and the row says so rather than showing 0 ms.
+          const verdict = lay
+            ? (lay.score !== undefined ? `${lay.verdict} ${lay.score.toFixed(3)}` : lay.verdict)
+            : null;
+          const ran = !!lay || us > 0;
+          rows.push({
+            name,
+            status: !ran ? 'skipped'
+                         : (lay && (lay.verdict === 'FAIL' || lay.verdict === 'FLAGGED'
+                                    || lay.verdict === 'false_accusation') ? 'bad' : 'ran'),
+            value: !ran ? 'not run'
+                        : `${verdict ? verdict + ' · ' : ''}${(us / 1000).toFixed(1)} ms`,
+          });
+          if (!lay) Ribbon.set(key, ran ? 'done' : 'skipped',
+                               ran ? `${(us / 1000).toFixed(1)} ms` : 'skipped');
         };
         const bc = Number(this.cfg.blockchain) === 1;
         add('pqc', 'PQC signatures', bc);
@@ -195,7 +212,13 @@ const Dispatch = {
                     value: `${ev.w1.toFixed(2)} / ${ev.w2.toFixed(2)}` });
         Sidebar.pipeline(rows);
 
-        if (ev.stopped_by && ev.stopped_by !== 'none') Ribbon.skipAfter(ev.stopped_by);
+        if (ev.stopped_by && ev.stopped_by !== 'none') {
+          // pass what actually ran, so a credited-but-not-final layer is not mislabelled
+          const ran = {};
+          for (const k of ['pqc', 'zkp', 'gnn', 'llm', 'bc'])
+            ran[k] = !!seen[k] || (L[k] || 0) > 0;
+          Ribbon.skipAfter(ev.stopped_by, ran);
+        }
 
         if (bc) {
           this.ledger.unshift({
@@ -235,6 +258,64 @@ const Dispatch = {
         accepted, by: ev.stopped_by,
       });
       Sidebar.status(this.cfg, this.counts, Clock.fmt());
+    },
+
+    /* `layer`, `chain_tx`, `llm_incident` and `stake` come from a run's own CSVs (via the
+       importer) and will come live once --liveStream exists. They carry the real verdicts,
+       which are far more informative than inferring "ran" from a non-zero latency. */
+    layer(ev, animate) {
+        const slot = this.layers[ev.event] || (this.layers[ev.event] = {});
+        slot[ev.layer] = ev;
+
+        const label = {
+          zkp: () => ev.verdict + (ev.v_geo ? ' (V_geo)' : ''),
+          gnn: () => (ev.score !== undefined ? ev.score.toFixed(3) : ev.verdict),
+          llm: () => ev.verdict === 'false_accusation' ? 'false accusation'
+                                                       : (ev.verdict || '—'),
+        }[ev.layer];
+
+        const bad = ev.verdict === 'FAIL' || ev.verdict === 'FLAGGED'
+                    || ev.verdict === 'false_accusation';
+        Ribbon.set(ev.layer, bad ? 'blocked' : 'done', label ? label() : ev.verdict);
+
+        if (animate && this.current && this.current.event === ev.event) {
+          const tag = { zkp: 'ZKP ' + ev.verdict,
+                        gnn: 'GNN ' + (ev.score !== undefined ? ev.score.toFixed(2) : ''),
+                        llm: 'LLM ' + (ev.verdict || '') }[ev.layer];
+          if (tag) Fx.tag({ v: this.current.victim.v }, tag,
+                          { kind: bad ? 'blocked' : 'info' });
+        }
+    },
+
+    chain_tx(ev, animate) {
+      this.ledger.unshift({
+        title: `${ev.fn} · event ${ev.event}`,
+        time: `t=${(ev.t || 0).toFixed(1)}s`,
+        lines: [
+          `endorsed ${ev.endorsed ? '✓' : '✗'}` +
+            (ev.divergence ? `  divergence: ${ev.divergence_reason || 'yes'}` : ''),
+          ev.rolled_back ? 'outcome ROLLED BACK on chain' : 'outcome committed',
+          `controller trust ${(ev.controller_trust ?? 0).toFixed(3)}` +
+            (ev.failover ? '  → FAILOVER' : ''),
+        ],
+      });
+      Sidebar.ledger(this.ledger.slice(0, 12));
+      Ribbon.set('bc', ev.blocked ? 'blocked' : 'done',
+                 ev.blocked ? 'BLOCKED' : (ev.endorsed ? 'endorsed' : 'not endorsed'));
+      if (animate && ev.blocked) Fx.ring({ c: 0 }, 'blocked', { r: 260 });
+    },
+
+    llm_incident(ev, animate) {
+      // Only escalations that actually led to mitigation reach this file, so `action` is a
+      // real consequence (credential_revoked|isolated), not just an opinion.
+      if (animate) Fx.tag({ v: ev.accuser.v }, ev.action.replace('|', ' + '),
+                          { kind: 'blocked', hold: 2400 });
+      World.setState(ev.accuser.v, 'blacklisted');
+    },
+
+    stake(ev, animate) {
+      if (animate && ev.burned > 0)
+        Fx.tag({ v: ev.accuser.v }, `stake −${ev.burned.toFixed(2)}`, { kind: 'warn' });
     },
 
     rsu_status(ev, animate) {

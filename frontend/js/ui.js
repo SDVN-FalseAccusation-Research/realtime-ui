@@ -61,12 +61,16 @@ const Ribbon = {
    *  ZK gate, and the GNN is then DELIBERATELY not run (apps.cc gates it on
    *  zkpResult != FAIL). Showing GNN/LLM as "skipped" explains why their scores are zero,
    *  instead of leaving it looking like the detector missed something. */
-  skipAfter(id) {
+  skipAfter(id, ran = {}) {
     const i = this.stages.findIndex(s => s.id === id);
     if (i < 0) return;
     for (let j = i + 1; j < this.stages.length; j++) {
       const s = this.stages[j];
-      if (s.group === 'defence') this.set(s.id, 'skipped', 'skipped');
+      // Only mark a later stage skipped if it genuinely produced nothing. `stopped_by`
+      // names which layer gets CREDIT for the block, not where the pipeline halted: the
+      // LLM still runs on a GNN-flagged accusation and returns a verdict, so calling it
+      // "skipped" because the GNN was credited would be a lie about what executed.
+      if (s.group === 'defence' && !ran[s.id]) this.set(s.id, 'skipped', 'not run');
     }
   },
 };
@@ -107,7 +111,10 @@ const Sidebar = {
       </div>
       <div class="kv"><span>accuser</span><b class="attacker">V${e.accuser.v}</b></div>
       <div class="kv"><span>victim</span><b class="victim">V${e.victim.v}</b></div>
-      <div class="kv"><span>separation</span><b>${e.dist} m ${e.in_range ? '' : '<span class="warn">(out of range)</span>'}</b></div>
+      <div class="kv"><span>separation</span><b>${
+        e.src === 'csv' ? '<span class="muted">not recorded</span>'
+                        : `${e.dist} m ${e.in_range ? '' : '<span class="warn">(out of range)</span>'}`
+      }</b></div>
       ${e.victim_density !== undefined ? `<div class="kv"><span>victim neighbours</span><b>${e.victim_density}</b></div>` : ''}
       <div class="kv"><span>serving RSU</span><b class="rsu" id="sb-rsu">—</b></div>
       <div class="kv"><span>witnesses</span><b id="sb-wit">—</b></div>
