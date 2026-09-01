@@ -1,0 +1,217 @@
+"""FastAPI application: REST + the one WebSocket, and the static frontend.
+
+    uvicorn app:app --host 127.0.0.1 --port 8000        (from backend/)
+    or:  ../.venv/bin/python -m uvicorn app:app --port 8000
+
+BINDS TO LOOPBACK ONLY. This server starts processes on the machine; it is a local tool,
+not a service. `assert_local()` is called at startup so an accidental --host 0.0.0.0 is a
+loud failure rather than a quiet exposure.
+"""
+
+import asyncio
+import os
+
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+import config
+import health
+import run_store
+from flags import ATTACK_TYPES, REGISTRY
+from hub import Client, Hub, pump
+from runner import RunManager
+from validate import Rejected, build_argv
+
+app = FastAPI(title="SDVN realtime demonstrator", docs_url=None, redoc_url=None)
+HUB = Hub()
+MANAGER = RunManager(HUB)
+
+
+def assert_local(host):
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        raise SystemExit(
+            f"refusing to bind {host}: this server spawns processes and must stay on "
+            f"loopback")
+
+
+# ---------------------------------------------------------------------------- REST ----
+@app.get("/api/flags")
+def get_flags():
+    """The whitelist, its defaults, the presets, and the nine attack types.
+
+    The config page is generated from this, so the form can never offer a flag the
+    simulator does not have.
+    """
+    try:
+        REGISTRY.load()
+    except (FileNotFoundError, RuntimeError) as exc:
+        raise HTTPException(503, str(exc))
+    return {"flags": REGISTRY.as_list(),
+            "attack_types": ATTACK_TYPES,
+            "presets": config.PRESETS,
+            "default_preset": config.DEFAULT_PRESET,
+            "traces": sorted(config.TRACES),
+            "limits": {"trace_vehicles": config.TRACE_VEHICLES,
+                       "trace_end_s": config.TRACE_END_S}}
+
+
+@app.get("/api/health")
+def get_health():
+    return health.probe()
+
+
+@app.get("/api/runs")
+def get_runs(limit: int = Query(200, ge=1, le=1000)):
+    return {"runs": run_store.list_runs(limit),
+            "busy": MANAGER.busy(),
+            "current": MANAGER.current.run_id if MANAGER.busy() else None}
+
+
+@app.get("/api/runs/{run_id}")
+def get_run(run_id: str):
+    import json
+    try:
+        d = run_store.run_dir(run_id)
+    except Exception:
+        raise HTTPException(400, "bad run id")
+    cfg = os.path.join(d, "run_config.json")
+    if not os.path.exists(cfg):
+        raise HTTPException(404, "no such run")
+    with open(cfg) as fh:
+        meta = json.load(fh)
+    run = MANAGER.get(run_id)
+    meta["live"] = bool(run and run.alive)
+    return meta
+
+
+@app.post("/api/runs")
+async def post_run(body: dict):
+    """Validate, allocate a run directory, spawn. Returns before the run finishes."""
+    if MANAGER.busy():
+        raise HTTPException(409, f"already running {MANAGER.current.run_id}")
+
+    run_id = run_store.new_run_id(body.get("attackType", "run"))
+    try:
+        argv, effective = build_argv(body, run_id)
+    except Rejected as exc:
+        # 400 with the offending field named — the config page highlights it
+        return JSONResponse(status_code=400,
+                            content={"error": exc.reason, "field": exc.field})
+
+    store = run_store.RunStore(run_id).open(body, effective, argv)
+    try:
+        await MANAGER.start(run_id, argv, effective, store)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc))
+    except FileNotFoundError as exc:
+        raise HTTPException(503, f"cannot start the simulator: {exc}")
+
+    return {"run_id": run_id, "argv": argv, "effective": effective,
+            "ws": f"/ws/runs/{run_id}"}
+
+
+@app.delete("/api/runs/{run_id}")
+async def delete_run(run_id: str):
+    run = await MANAGER.stop(run_id)
+    if not run:
+        raise HTTPException(404, "no such run")
+    return {"run_id": run_id, "stopped": True}
+
+
+@app.get("/api/runs/{run_id}/metrics")
+def get_metrics(run_id: str):
+    """M1-M12, computed by the project's own pem.py so the UI cannot disagree with the
+    paper. Available once the run has finished and its CSVs are complete."""
+    import sys
+    sys.path.insert(0, config.BCD_DIR)
+    try:
+        import pem
+    except ImportError as exc:
+        raise HTTPException(503, f"pem.py not importable: {exc}")
+    d = run_store.run_dir(run_id)
+    if not os.path.isdir(d):
+        raise HTTPException(404, "no such run")
+    out = pem.compute_cell(d)
+    if out is None:
+        raise HTTPException(409, "no decisions.csv yet — has the run finished?")
+    res, confusion = out
+    return {"run_id": run_id,
+            "confusion": {"tp": confusion[0], "fp": confusion[1],
+                          "tn": confusion[2], "fn": confusion[3]},
+            "metrics": {k: {"value": m.value, "num": m.num, "den": m.den,
+                            "na_reason": m.na_reason}
+                        for k, m in res.items()}}
+
+
+# ----------------------------------------------------------------------- WebSocket ----
+@app.websocket("/ws/runs/{run_id}")
+async def ws_run(ws: WebSocket, run_id: str, from_seq: int = Query(1, ge=1)):
+    """The single event channel — identical for live, resume and replay.
+
+    A live run streams from the hub. A finished run replays from events.jsonl. A
+    reconnecting client passes ?from_seq=<last+1> and the gap is served from disk before
+    it rejoins the tail.
+    """
+    origin = ws.headers.get("origin")
+    if origin and not (origin.startswith("http://127.0.0.1")
+                       or origin.startswith("http://localhost")):
+        await ws.close(code=1008)
+        return
+
+    await ws.accept()
+    run = MANAGER.get(run_id)
+    live = bool(run and run.alive)
+
+    client = Client(ws, run_id, from_seq)
+    if live:
+        await HUB.add(client)
+
+    try:
+        # 1) backlog from memory (live) or disk (replay / resume)
+        backlog = run.store.since(from_seq) if run else run_store.read_events(run_id, from_seq)
+        for ev in backlog:
+            await ws.send_json(ev)
+
+        if not live:
+            await ws.send_json({"type": "_replay_end", "count": len(backlog)})
+            return
+
+        # 2) then the live tail, skipping anything the backlog already covered
+        last = backlog[-1]["seq"] if backlog else from_seq - 1
+        while True:
+            ev = await client.queue.get()
+            if ev.get("type") == "_eos":
+                break
+            if ev.get("seq", 0) > last:
+                await ws.send_json(ev)
+    except WebSocketDisconnect:
+        pass
+    except (asyncio.CancelledError, RuntimeError):
+        pass
+    finally:
+        await HUB.remove(client)
+
+
+# --------------------------------------------------------------------------- static ---
+if os.path.isdir(config.ASSETS):
+    app.mount("/assets", StaticFiles(directory=config.ASSETS), name="assets")
+if os.path.isdir(config.FRONTEND):
+    app.mount("/static", StaticFiles(directory=config.FRONTEND), name="static")
+
+
+@app.get("/")
+def index():
+    p = os.path.join(config.FRONTEND, "index.html")
+    if not os.path.exists(p):
+        return JSONResponse({"ok": True, "note": "frontend not built yet",
+                             "api": ["/api/flags", "/api/health", "/api/runs"]})
+    return FileResponse(p)
+
+
+@app.get("/live")
+def live_page():
+    p = os.path.join(config.FRONTEND, "live.html")
+    if not os.path.exists(p):
+        raise HTTPException(404, "live page not built yet")
+    return FileResponse(p)
