@@ -17,6 +17,12 @@
     <span class="spacer"></span>
     <span class="badge" id="conn"><span class="dot"></span>connecting</span>
     <button id="stop-btn" class="danger">Stop</button>
+    <!-- The post-run views. The components page was unreachable from anywhere in the app
+         until now — it existed only if you typed its URL. -->
+    <a class="badge" id="link-stats" style="text-decoration:none">Statistics</a>
+    <a class="badge" id="link-metrics" style="text-decoration:none">Metrics</a>
+    <a class="badge" id="link-components" style="text-decoration:none">Components</a>
+    <a href="/runs" class="badge" style="text-decoration:none">History</a>
     <a href="/" class="badge" style="text-decoration:none">New run</a>
   </header>
 
@@ -31,6 +37,35 @@
     <div id="map-pane">
       <svg id="stage"></svg>
 
+      <!-- Always visible. Projectors wash out colour, so each entry carries its SHAPE as
+           well as its swatch, and every colour is a var() read from tokens.css — these were
+           validated for colour-vision deficiency once and must not be re-picked by eye. -->
+      <div id="legend">
+        <div class="lg-title">Legend</div>
+        <div class="lg-grid">
+          <span class="lg-sw" style="background:var(--attacker)"></span><span>false accuser</span>
+          <span class="lg-sw" style="background:var(--victim)"></span><span>accused victim</span>
+          <span class="lg-sw" style="background:var(--reporter)"></span><span>witness / reporter</span>
+          <span class="lg-sw" style="background:var(--misbehaver)"></span><span>genuine misbehaver</span>
+          <span class="lg-sw" style="background:var(--honest)"></span><span>honest vehicle</span>
+          <span class="lg-sw" style="background:var(--blacklist)"></span><span>blacklisted</span>
+        </div>
+        <div class="lg-title">Infrastructure</div>
+        <div class="lg-grid">
+          <svg class="lg-ic" viewBox="-16 -18 32 44"><g class="rsu">
+            <rect class="mast" x="-1.2" y="-14" width="2.4" height="22" rx="1"/>
+            <rect class="base" x="-7" y="7" width="14" height="4" rx="1.5"/>
+            <path class="wave" d="M2,-12 A7,7 0 0 1 2,-4"/>
+            <path class="wave" d="M4,-14 A11,11 0 0 1 4,-2"/></g></svg><span>RSU</span>
+          <svg class="lg-ic" viewBox="-18 -20 36 44"><g class="ctrl">
+            <path class="shield" d="M0,-18 L15,-9 L15,7 Q15,16 0,20 Q-15,16 -15,7 L-15,-9 Z"/>
+            <path class="tick" d="M-6,0 L-2,5 L7,-6"/></g></svg><span>SDN controller</span>
+          <svg class="lg-ic" viewBox="-16 -18 32 44"><g class="rsu" data-state="quarantined">
+            <rect class="mast" x="-1.2" y="-14" width="2.4" height="22" rx="1"/>
+            <rect class="base" x="-7" y="7" width="14" height="4" rx="1.5"/></g></svg><span>RSU quarantined (SC4)</span>
+        </div>
+      </div>
+
       <div id="controls">
         <button id="play">▶</button>
         <button id="step">⏭</button>
@@ -43,7 +78,12 @@
           <option value="20">20×</option>
           <option value="max">max</option>
         </select>
-        <button id="reset-view" title="Reset zoom">⤢</button>
+        <button id="reset-view" title="Fit the whole map">⤢</button>
+        <!-- OFF by default: the camera used to jump and zoom to every accusation, which
+             takes control away from whoever is presenting and never shows the city. -->
+        <label class="follow" title="Let the camera jump to each accusation">
+          <input type="checkbox" id="follow"> follow
+        </label>
         <span id="stall"></span>
       </div>
 

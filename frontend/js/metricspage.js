@@ -116,6 +116,7 @@ if (!runId) location.href = '/runs';
 $('run-label').textContent = runId;
 $('link-stats').href = `/stats?run=${encodeURIComponent(runId)}`;
 $('link-live').href = `/live?run=${encodeURIComponent(runId)}`;
+$('link-components').href = `/components?run=${encodeURIComponent(runId)}`;
 
 fetch(`/api/runs/${encodeURIComponent(runId)}/metrics`)
   .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || 'failed')))

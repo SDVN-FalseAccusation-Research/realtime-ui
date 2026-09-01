@@ -262,6 +262,7 @@ const runId = new URLSearchParams(location.search).get('run');
 if (!runId) location.href = '/runs';
 $('run-label').textContent = runId;
 $('link-live').href = `/live?run=${encodeURIComponent(runId)}`;
+$('link-components').href = `/components?run=${encodeURIComponent(runId)}`;
 $('link-metrics').href = `/metrics?run=${encodeURIComponent(runId)}`;
 
 ['q', 'f-kind', 'f-out'].forEach(id => {

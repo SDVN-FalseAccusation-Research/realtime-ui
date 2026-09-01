@@ -18,6 +18,12 @@ const App = {
     this.runId = q.get('run');
     if (!this.runId) { location.href = '/'; return; }
     $('run-label').textContent = this.runId;
+    // The post-run views, carrying this run's id.
+    for (const [id, page] of [['link-stats', 'stats'], ['link-metrics', 'metrics'],
+                              ['link-components', 'components']]) {
+      const el = $(id);
+      if (el) el.href = `/${page}?run=${encodeURIComponent(this.runId)}`;
+    }
 
     // Deep-link params: ?t=140 jumps straight to a moment, ?rate=5 sets the speed,
     // ?paused=1 holds. Useful for rehearsing a specific accusation on demo day, and it
@@ -107,6 +113,7 @@ const App = {
       Clock.setRate(v === 'max' ? 'max' : Number(v));
     };
     $('reset-view').onclick = () => World.resetView();
+    $('follow').onchange = (e) => { Dispatch.follow = e.target.checked; };
 
     const scrub = $('scrub');
     scrub.oninput = () => {

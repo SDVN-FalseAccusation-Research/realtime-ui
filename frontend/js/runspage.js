@@ -105,7 +105,8 @@ function render() {
       <td class="row-actions">${r.has_events
         ? '<button data-go="live">Replay</button>' +
           '<button data-go="stats">Stats</button>' +
-          '<button data-go="metrics">Metrics</button>'
+          '<button data-go="metrics">Metrics</button>' +
+          '<button data-go="components">Components</button>'
         : '<span class="muted">no log</span>'}</td>
     </tr>`;
   }).join('');

@@ -24,6 +24,7 @@ function banner(html, cls = '') {
 }
 
 const Dispatch = {
+  follow: false,          // camera follows each accusation; see the `follow` checkbox
   cursor: 0,
   cfg: {},
   roles: { attackers: [], misbehavers: [] },
@@ -146,7 +147,9 @@ const Dispatch = {
       Ribbon.set('reporters', 'done', `${wits.length} in range`);
 
       if (animate) {
-        World.focusOn([ap, rsu].filter(Boolean));
+        // Only when the presenter asks for it. Zooming the camera on every accusation
+        // means the audience never sees the map and the presenter cannot hold a view.
+        if (Dispatch.follow) World.focusOn([ap, rsu].filter(Boolean));
         Fx.tag({ v: a }, 'accuses V' + v, { kind: 'attacker' });
         Fx.ring({ v: v }, 'victim', { r: 260 });
         wits.forEach(w => World.mark(w.id, 'reporter'));
