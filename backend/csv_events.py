@@ -316,3 +316,75 @@ def lkh_events(path, src=None):
             **({"src": src} if src else {}),
         })
     return out
+
+
+# ======================================================================================
+# Readers used by the component detail pages (components.py) rather than the event stream.
+# These files are either too large for events.jsonl (_trust_refresh.csv is 11 MB) or carry
+# no event_id to hang an event off (_lkh.csv), so they are read on demand and aggregated
+# server-side instead.
+# ======================================================================================
+
+def trust_refresh_rows(path, event_id=None, limit=400):
+    """_trust_refresh.csv -> the reputation updates, optionally for one accusation.
+
+    This is the file that answers "what did the reputation layer CHANGE": it carries
+    `event_id`, the `glsim` that drove the update, and the `old_tr` -> `new_tr` pair.
+    `_reputation.csv` is the fuller n-by-n snapshot but is 153 MB and has NO event_id, so
+    it is deliberately not used here.
+    """
+    out = []
+    for row in _rows(path):
+        if event_id is not None and _i(row, "event_id", -1) != event_id:
+            continue
+        out.append({
+            "event": _i(row, "event_id", -1), "t": _f(row, "time"),
+            "observer": _i(row, "observer"), "reporter": _i(row, "reporter"),
+            "glsim": _f(row, "glsim"),
+            "old_tr": _f(row, "old_tr"), "new_tr": _f(row, "new_tr"),
+            "delta": round(_f(row, "new_tr") - _f(row, "old_tr"), 6),
+            "source": row.get("source", ""),
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
+def lkh_summary(path):
+    """_lkh.csv -> the group-key re-key cost, aggregated.
+
+    Rows are drained once at end-of-run and carry `zone` but NO `event_id`, so they cannot
+    be attributed to a specific accusation without inference. The value here is the
+    aggregate: `c_actual` (messages actually delivered) against `n_e` (group size) is the
+    O(m log N) claim, measured.
+    """
+    rows = _rows(path)
+    if not rows:
+        return {"events": 0}
+    by_kind, tot_c, tot_n, lat = {}, 0, 0, []
+    for r in rows:
+        k = r.get("kind") or "?"
+        c, n = _i(r, "c_actual"), _i(r, "n_e")
+        s = by_kind.setdefault(k, {"n": 0, "c_actual": 0, "n_e": 0})
+        s["n"] += 1
+        s["c_actual"] += c
+        s["n_e"] += n
+        tot_c += c
+        tot_n += n
+        lat.append(_f(r, "l_rekey_us"))
+    import math
+    # A flat scheme costs O(N) messages per revocation; LKH claims O(m log N). Comparing
+    # the measured mean against log2(mean group size) is the whole point of this file.
+    mean_n = tot_n / len(rows) if rows else 0
+    return {
+        "events": len(rows),
+        "messages": tot_c,
+        "mean_per_rekey": round(tot_c / len(rows), 2),
+        "mean_group": round(mean_n, 1),
+        "log2_group": round(math.log2(mean_n), 2) if mean_n > 1 else 0,
+        "flat_would_be": round(mean_n, 1),
+        "mean_latency_us": round(sum(lat) / len(lat), 1) if lat else 0,
+        "by_kind": {k: {"n": v["n"],
+                        "mean_c": round(v["c_actual"] / v["n"], 2) if v["n"] else 0}
+                    for k, v in sorted(by_kind.items())},
+    }

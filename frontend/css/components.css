@@ -1,0 +1,61 @@
+/* Component pages. */
+.comp-tabs {
+  display: flex; gap: 4px; padding: 10px 16px; flex: 0 0 auto;
+  background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.comp-tabs button { font-size: 12px; padding: 6px 12px; }
+.comp-tabs button[aria-pressed="true"] { border-color: var(--info); color: var(--info);
+  background: color-mix(in srgb, var(--info) 15%, var(--panel-3)); }
+.comp-tabs button[data-available="false"] { opacity: .45; }
+
+.comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+             gap: 12px; }
+.comp-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); padding: 14px 16px; cursor: pointer;
+}
+.comp-card:hover { border-color: var(--line-bright); }
+.comp-card[data-available="false"] { opacity: .5; cursor: default; }
+.comp-card h3 { margin: 0 0 4px; font-size: 13px; }
+.comp-card .role { font-size: 11px; color: var(--ink-faint); line-height: 1.5;
+                   min-height: 32px; }
+.comp-card .headline { font: 15px/1.4 var(--mono); color: var(--ink); margin-top: 8px; }
+.comp-card[data-available="false"] .headline { color: var(--ink-faint); font-style: italic; }
+
+/* Notes are the honest-gaps channel: what this run did NOT record, and why. They are
+   deliberately prominent rather than tucked into a tooltip. */
+.notes { margin: 12px 0 0; }
+.note {
+  border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent);
+  padding: 8px 12px; margin-bottom: 6px; font-size: 11px; line-height: 1.6;
+  color: var(--ink-dim); border-radius: 0 var(--radius) var(--radius) 0;
+}
+.note.bad { border-left-color: var(--danger);
+            background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+.def-list { display: grid; grid-template-columns: 150px 1fr; gap: 4px 14px;
+            font-size: 12px; align-items: baseline; }
+.def-list dt { color: var(--ink-dim); }
+.def-list dd { margin: 0; font-family: var(--mono); }
+
+.hash { font: 10px var(--mono); color: var(--ink-faint); word-break: break-all; }
+.ok-tick { color: var(--ok); font-weight: 600; }
+
+/* per-variant probability bar: one stacked row, 2px gaps between segments */
+.pv { display: flex; gap: 2px; height: 12px; width: 130px; }
+.pv i { display: block; height: 100%; border-radius: 2px; min-width: 1px; }
+.pv .single { background: var(--pqc); }
+.pv .sybil { background: var(--zkp); }
+.pv .timing { background: var(--gnn); }
+.pv .colluding { background: var(--llm); }
+.pv-key { display: flex; gap: 12px; font-size: 10px; color: var(--ink-faint); margin-top: 6px; }
+.pv-key span::before { content: '■ '; }
+.pv-key .single::before { color: var(--pqc); }
+.pv-key .sybil::before { color: var(--zkp); }
+.pv-key .timing::before { color: var(--gnn); }
+.pv-key .colluding::before { color: var(--llm); }
+
+.sc-row { display: grid; grid-template-columns: 46px 1fr; gap: 12px; padding: 6px 0;
+          border-bottom: 1px solid var(--line); font-size: 12px; }
+.sc-row:last-child { border-bottom: none; }
+.sc-row b { color: var(--bc); font-family: var(--mono); }

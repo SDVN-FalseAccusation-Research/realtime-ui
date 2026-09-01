@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnec
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+import components
 import config
 import health
 import run_store
@@ -157,6 +158,33 @@ def get_metrics(run_id: str):
                         for k, m in res.items()}}
 
 
+@app.get("/api/runs/{run_id}/components")
+def get_components(run_id: str):
+    """Which defence components this run actually used, with a headline stat each."""
+    out = components.overview(run_id)
+    if out is None:
+        raise HTTPException(404, "no such run")
+    return out
+
+
+@app.get("/api/runs/{run_id}/component/{name}")
+def get_component(run_id: str, name: str,
+                  event: int = Query(None), limit: int = Query(400, ge=1, le=5000)):
+    """One component's detail: what went in, what came out, what it changed.
+
+    Read server-side from the run's CSVs — `_trust_refresh.csv` is 11 MB and
+    `_reputation.csv` 153 MB, so neither is ever shipped whole to a browser.
+    """
+    if name not in components.NAMES:
+        raise HTTPException(404, f"unknown component; expected one of "
+                                 f"{', '.join(components.NAMES)}")
+    kw = {"event_id": event, "limit": limit} if name == "reputation" else {}
+    out = components.build(run_id, name, **kw)
+    if out is None:
+        raise HTTPException(404, "no such run")
+    return out
+
+
 # ----------------------------------------------------------------------- WebSocket ----
 @app.websocket("/ws/runs/{run_id}")
 async def ws_run(ws: WebSocket, run_id: str, from_seq: int = Query(1, ge=1)):
@@ -253,6 +281,14 @@ def live_page():
     p = os.path.join(config.FRONTEND, "live.html")
     if not os.path.exists(p):
         raise HTTPException(404, "live page not built yet")
+    return FileResponse(p)
+
+
+@app.get("/components")
+def components_page():
+    p = os.path.join(config.FRONTEND, "components.html")
+    if not os.path.exists(p):
+        raise HTTPException(404, "components page not built yet")
     return FileResponse(p)
 
 
