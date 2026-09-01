@@ -26,6 +26,10 @@
 # across three campaigns. Do not "simplify" it into a single attempt.
 set -uo pipefail
 
+if ! docker info >/dev/null 2>&1 && sg docker -c "docker info" >/dev/null 2>&1; then
+  exec sg docker -c "$(printf '%q ' "$0" "$@")"
+fi
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UI_ROOT="$(dirname "$HERE")"
 FYP="$(dirname "$UI_ROOT")"
