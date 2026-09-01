@@ -123,6 +123,7 @@ async def delete_run(run_id: str):
 def get_metrics(run_id: str):
     """M1-M12, computed by the project's own pem.py so the UI cannot disagree with the
     paper. Available once the run has finished and its CSVs are complete."""
+    import json
     import sys
     sys.path.insert(0, config.BCD_DIR)
     try:
@@ -132,13 +133,25 @@ def get_metrics(run_id: str):
     d = run_store.run_dir(run_id)
     if not os.path.isdir(d):
         raise HTTPException(404, "no such run")
+    # An imported run does not copy its CSVs (one sweep cell carries a 178 MB
+    # _beacons.csv), so the metrics are computed from where they actually live.
+    try:
+        with open(os.path.join(d, "run_config.json")) as fh:
+            meta = json.load(fh)
+        if meta.get("imported") and os.path.isdir(meta.get("source_dir", "")):
+            d = meta["source_dir"]
+    except (OSError, ValueError):
+        pass
     out = pem.compute_cell(d)
     if out is None:
         raise HTTPException(409, "no decisions.csv yet — has the run finished?")
     res, confusion = out
     return {"run_id": run_id,
-            "confusion": {"tp": confusion[0], "fp": confusion[1],
-                          "tn": confusion[2], "fn": confusion[3]},
+            # pem.py returns (tp, TN, FP, fn) -- note the middle two are tn THEN fp,
+            # not the conventional tp/fp/tn/fn order (pem.py m1_mcc, final return).
+            # Getting this backwards reported 50 false positives where there were 9.
+            "confusion": {"tp": confusion[0], "tn": confusion[1],
+                          "fp": confusion[2], "fn": confusion[3]},
             "metrics": {k: {"value": m.value, "num": m.num, "den": m.den,
                             "na_reason": m.na_reason}
                         for k, m in res.items()}}
@@ -240,6 +253,22 @@ def live_page():
     p = os.path.join(config.FRONTEND, "live.html")
     if not os.path.exists(p):
         raise HTTPException(404, "live page not built yet")
+    return FileResponse(p)
+
+
+@app.get("/metrics")
+def metrics_page():
+    p = os.path.join(config.FRONTEND, "metrics.html")
+    if not os.path.exists(p):
+        raise HTTPException(404, "metrics page not built yet")
+    return FileResponse(p)
+
+
+@app.get("/stats")
+def stats_page():
+    p = os.path.join(config.FRONTEND, "stats.html")
+    if not os.path.exists(p):
+        raise HTTPException(404, "statistics page not built yet")
     return FileResponse(p)
 
 

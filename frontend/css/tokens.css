@@ -46,12 +46,22 @@
   --info:    #38bdf8;
   --ledger:  #eab308;
 
-  /* ---- defence layers (ribbon + pipeline rows) ---- */
-  --pqc: #60a5fa;
-  --zkp: #a78bfa;
-  --gnn: #22d3ee;
-  --llm: #f472b6;
-  --bc:  #eab308;
+  /* ---- defence layers (ribbon, pipeline rows, layer-attribution chart) ----
+   * These are a CATEGORICAL palette (five identities, no order), so they were run
+   * through the dataviz validator against the --panel surface rather than picked by eye.
+   * The first attempt failed hard: the hand-picked ZKP violet #a78bfa and PQC blue
+   * #60a5fa were ΔE 0.3 apart under deuteranopia — indistinguishable — and only 10.2 for
+   * normal vision, under the 15 floor. These are the reference dark categorical steps,
+   * which pass all five checks (worst adjacent ΔE 8.4 protan / 19.3 normal).
+   * Re-validate before changing any of them. */
+  --pqc: #3987e5;   /* slot 1 blue   */
+  --zkp: #d95926;   /* slot 2 orange */
+  --gnn: #199e70;   /* slot 3 aqua   */
+  --llm: #c98500;   /* slot 4 yellow */
+  --bc:  #d55181;   /* slot 5 magenta*/
+  /* NOT a sixth category: `degenerate` means the event was starved of evidence rather
+   * than defended, so it renders neutral + hatched, outside the defence group. */
+  --degenerate: #64809c;
 
   /* ---- roads (drawn once into a static backdrop) ---- */
   --road-motorway:    #2a3a4d;

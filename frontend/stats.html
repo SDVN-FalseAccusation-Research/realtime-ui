@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAZD-SDVN · Run statistics</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/sprites.css">
+<link rel="stylesheet" href="/static/css/runs.css">
+<link rel="stylesheet" href="/static/css/stats.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1>FAZD-SDVN</h1>
+    <span class="sub" id="run-label">—</span>
+    <span id="imported-chip"></span>
+    <span class="spacer"></span>
+    <a class="badge" id="link-live" style="text-decoration:none">Replay</a>
+    <a class="badge" id="link-metrics" style="text-decoration:none">Metrics</a>
+    <a href="/runs" class="badge" style="text-decoration:none">History</a>
+  </header>
+
+  <div class="stats-body" id="body">
+    <p class="muted" id="loading" style="padding:24px">Loading run…</p>
+
+    <!-- ─────────────────────────── headline ─────────────────────────── -->
+    <section class="hidden" id="kpis">
+      <div class="kpi-row" id="kpi-row"></div>
+      <p class="kpi-note">
+        An <b>attack</b> is an accusation whose victim was <b>honest</b>. A genuine report
+        being accepted is correct behaviour, never an attack success — the same rule
+        <code>run_sweep.sh</code> uses, so these numbers are comparable with the sweep's.
+      </p>
+    </section>
+
+    <!-- ───────────────────── layer attribution ──────────────────────── -->
+    <section class="card-wide hidden" id="sec-layers">
+      <h2>What stopped each attack</h2>
+      <div id="layer-chart"></div>
+      <p class="kpi-note" id="layer-note"></p>
+    </section>
+
+    <!-- ─────────────────────── accusations ──────────────────────────── -->
+    <section class="card-wide hidden" id="sec-table">
+      <h2>Accusations</h2>
+      <div class="runs-filters" style="background:none;border:none;padding:0 0 10px">
+        <input type="search" id="q" placeholder="accuser, victim, reason…" style="max-width:220px">
+        <select id="f-kind">
+          <option value="">all events</option>
+          <option value="attack">attacks only</option>
+          <option value="genuine">genuine reports</option>
+          <option value="warmup">warm-up</option>
+        </select>
+        <select id="f-out">
+          <option value="">any outcome</option>
+          <option value="acc">accepted</option>
+          <option value="blk">blocked</option>
+        </select>
+        <span class="spacer" style="flex:1"></span>
+        <span class="muted" id="tbl-count"></span>
+      </div>
+      <div class="tbl-scroll">
+        <table class="runs" id="tbl">
+          <thead><tr>
+            <th data-sort="event" class="num">#</th>
+            <th data-sort="t" class="num">t (s)</th>
+            <th data-sort="kind">kind</th>
+            <th data-sort="accuser" class="num">accuser</th>
+            <th data-sort="victim" class="num">victim</th>
+            <th data-sort="reports" class="num">reports</th>
+            <th data-sort="w1" class="num">w1</th>
+            <th data-sort="w2" class="num">w2</th>
+            <th data-sort="decision">decision</th>
+            <th data-sort="stopped_by">stopped by</th>
+            <th>reason</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ────────────────── blockchain + attack detail ────────────────── -->
+    <div class="two-col">
+      <section class="card-wide hidden" id="sec-chain">
+        <h2>Blockchain ledger</h2>
+        <div id="chain-list"></div>
+      </section>
+      <section class="card-wide hidden" id="sec-attack">
+        <h2 id="attack-title">Attack detail</h2>
+        <div id="attack-detail"></div>
+      </section>
+    </div>
+
+  </div>
+</div>
+
+<script src="/static/js/statspage.js"></script>
+</body>
+</html>

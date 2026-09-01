@@ -1,0 +1,73 @@
+/* Statistics page. */
+.stats-body { flex: 1; overflow: auto; padding: 16px 18px 40px; }
+.hidden { display: none; }
+
+/* ---- KPI row -------------------------------------------------------------------
+ * Stat tiles, not a chart: each is a single headline number whose job is magnitude
+ * at a glance. No plot, so no hover layer. */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+           gap: 10px; margin-bottom: 8px; }
+.kpi {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); padding: 12px 14px;
+}
+.kpi .k-label { font: 600 10px/1 var(--font); letter-spacing: .8px;
+                text-transform: uppercase; color: var(--ink-faint); }
+.kpi .k-value { font: 26px/1.25 var(--mono); color: var(--ink); margin-top: 6px; }
+.kpi .k-sub   { font-size: 11px; color: var(--ink-dim); }
+.kpi.good .k-value { color: var(--ok); }
+.kpi.bad  .k-value { color: var(--danger); }
+.kpi-note { font-size: 11px; color: var(--ink-faint); line-height: 1.6; margin: 6px 2px 0; }
+.kpi-note code { color: var(--ink-dim); }
+
+.card-wide {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); padding: 14px 16px; margin-top: 14px;
+}
+.card-wide > h2 { margin: 0 0 12px; font: 600 12px/1 var(--font);
+                  letter-spacing: .8px; text-transform: uppercase; color: var(--ink-dim); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ---- layer attribution ---------------------------------------------------------
+ * Horizontal bars: the job is comparing magnitudes across named categories, and
+ * horizontal keeps the category labels readable without rotation. */
+.bars { display: flex; flex-direction: column; gap: 7px; }
+.bar-row { display: grid; grid-template-columns: 116px 1fr 74px; gap: 10px;
+           align-items: center; }
+.bar-row .b-name { font-size: 12px; color: var(--ink-dim); text-align: right; }
+.bar-track { background: var(--bg); border-radius: 4px; height: 20px; position: relative;
+              overflow: hidden; }
+/* display:block matters — these are <span>s, and height:100% is ignored on an inline box,
+   which renders every bar invisible. */
+.bar-fill { display: block; height: 100%; border-radius: 4px; min-width: 3px; }
+.bar-row .b-val { font: 12px var(--mono); color: var(--ink); }
+.bar-row .b-val small { color: var(--ink-faint); }
+
+.bar-row[data-layer="pqc"] .bar-fill { background: var(--pqc); }
+.bar-row[data-layer="zkp_proximity"] .bar-fill,
+.bar-row[data-layer="zkp"] .bar-fill { background: var(--zkp); }
+.bar-row[data-layer="gnn"] .bar-fill { background: var(--gnn); }
+.bar-row[data-layer="llm"] .bar-fill { background: var(--llm); }
+.bar-row[data-layer="blockchain"] .bar-fill { background: var(--bc); }
+.bar-row[data-layer="lw_signature"] .bar-fill { background: var(--info); }
+
+/* `degenerate` is NOT a defence. It is hatched and neutral, sits below a rule, and
+   says so in words — colour alone must not carry that distinction. */
+.bars .sep { border-top: 1px dashed var(--line-bright); margin: 6px 0 2px; }
+.bar-row[data-layer="degenerate"] .b-name { color: var(--ink-faint); font-style: italic; }
+.bar-row[data-layer="degenerate"] .bar-fill {
+  background: repeating-linear-gradient(45deg,
+    var(--degenerate) 0 5px, transparent 5px 10px);
+  outline: 1px solid var(--degenerate); outline-offset: -1px;
+}
+
+.tbl-scroll { max-height: 460px; overflow: auto; }
+table.runs td.acc { color: var(--danger); }
+table.runs td.blk { color: var(--ok); }
+.pill { display: inline-block; font: 9px/1 var(--mono); padding: 3px 6px;
+        border-radius: 3px; border: 1px solid var(--line-bright); color: var(--ink-dim); }
+.pill.attack  { border-color: var(--attacker); color: var(--attacker); }
+.pill.genuine { border-color: var(--misbehaver); color: var(--misbehaver); }
+.pill.warmup  { border-color: var(--info); color: var(--info); }
+.reason { font: 10px var(--mono); color: var(--ink-faint); }

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAZD-SDVN · Performance metrics</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/sprites.css">
+<link rel="stylesheet" href="/static/css/runs.css">
+<link rel="stylesheet" href="/static/css/stats.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <h1>FAZD-SDVN</h1>
+    <span class="sub" id="run-label">—</span>
+    <span id="imported-chip"></span>
+    <span class="spacer"></span>
+    <button id="export">Export CSV</button>
+    <a class="badge" id="link-stats" style="text-decoration:none">Statistics</a>
+    <a class="badge" id="link-live" style="text-decoration:none">Replay</a>
+    <a href="/runs" class="badge" style="text-decoration:none">History</a>
+  </header>
+
+  <div class="stats-body">
+    <p class="muted" id="loading" style="padding:24px">Computing metrics…</p>
+
+    <section class="hidden" id="main">
+      <div class="kpi-row" id="kpi-row"></div>
+      <p class="kpi-note">
+        Computed by the project's own <code>blockchain-defence/pem.py</code> — the same code
+        behind the report's tables — so these numbers cannot drift from the paper.
+        Metrics M1–M12 follow <code>main.tex §sec:metrics</code>.
+      </p>
+
+      <section class="card-wide">
+        <h2>Per-layer latency (M6 decomposition)</h2>
+        <div id="lat-chart"></div>
+        <p class="kpi-note">Mean wall time contributed by each stage of the pipeline.
+          A layer that did not run for this attack family contributes 0 ms.</p>
+      </section>
+
+      <section class="card-wide">
+        <h2>All metrics</h2>
+        <div class="tbl-scroll">
+          <table class="runs" id="tbl">
+            <thead><tr>
+              <th>metric</th><th class="num">value</th><th class="num">num / den</th>
+              <th>reading</th>
+            </tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <p class="kpi-note">
+          A metric with an empty denominator is reported <b>n/a with its reason</b>, never
+          0.0 — a silent zero reads as "perfect" and is exactly how a broken defence gets
+          shipped. The reasons below come from <code>pem.py</code> verbatim.
+        </p>
+      </section>
+
+      <section class="card-wide">
+        <h2>Confusion matrix</h2>
+        <div id="confusion"></div>
+      </section>
+    </section>
+  </div>
+</div>
+<script src="/static/js/metricspage.js"></script>
+</body>
+</html>

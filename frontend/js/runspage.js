@@ -9,6 +9,8 @@
 const $ = (id) => document.getElementById(id);
 const S = { runs: [], sort: 'started', dir: 'desc' };
 
+function imported(r) { return String(r.run_id || '').startsWith('imported-'); }
+
 function defences(r) {
   const on = [];
   if (Number(r.blockchain) === 1) on.push(['bc', 'BC']);
@@ -84,7 +86,8 @@ function render() {
     const when = (r.started || '').replace('T', ' ').replace('Z', '');
     return `<tr data-run="${r.run_id}">
       <td class="mono">${when}</td>
-      <td><span class="run-id">${r.run_id}</span></td>
+      <td><span class="run-id">${r.run_id}</span>${
+        imported(r) ? ' <span class="chip imported" title="reconstructed from this run\'s CSVs">imported</span>' : ''}</td>
       <td>${r.attackType || '—'}</td>
       <td class="num">${r.attackPercent ?? '—'}</td>
       <td class="num">${r.numVehicles || '?'}/${r.numRsus || '?'}/${r.numControllers || '?'}</td>
@@ -93,12 +96,17 @@ function render() {
       <td class="num">${a === null ? '—' :
         `<span class="asr-bar"><i style="width:${Math.round(a * 40)}px"></i>${a.toFixed(3)}</span>`}</td>
       <td class="${o.cls}">${o.txt}</td>
-      <td>${r.has_events ? '<button>Replay</button>' : '<span class="muted">no log</span>'}</td>
+      <td class="row-actions">${r.has_events
+        ? '<button data-go="live">Replay</button>' +
+          '<button data-go="stats">Stats</button>' +
+          '<button data-go="metrics">Metrics</button>'
+        : '<span class="muted">no log</span>'}</td>
     </tr>`;
   }).join('');
 
   $('rows').querySelectorAll('tr').forEach(tr => {
-    tr.onclick = () => { location.href = `/live?run=${encodeURIComponent(tr.dataset.run)}`; };
+    const go = (page) => { location.href = `/${page}?run=${encodeURIComponent(tr.dataset.run)}`; };
+    tr.onclick = (e) => go(e.target.dataset?.go || 'live');
   });
 }
 
