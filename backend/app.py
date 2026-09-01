@@ -241,3 +241,11 @@ def live_page():
     if not os.path.exists(p):
         raise HTTPException(404, "live page not built yet")
     return FileResponse(p)
+
+
+@app.get("/runs")
+def runs_page():
+    p = os.path.join(config.FRONTEND, "runs.html")
+    if not os.path.exists(p):
+        raise HTTPException(404, "history page not built yet")
+    return FileResponse(p)

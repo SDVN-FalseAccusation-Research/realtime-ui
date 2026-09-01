@@ -75,7 +75,7 @@ class RunStore:
                 self._fh.write(json.dumps(ev, separators=(",", ":")) + "\n")
         return ev
 
-    def close(self, exit_code=None, timing_fixed=0, timing_shift=0.0):
+    def close(self, exit_code=None, timing_fixed=0, timing_shift=0.0, summary=None):
         with self._lock:
             if self._fh:
                 self._fh.close()
@@ -89,6 +89,10 @@ class RunStore:
         meta.update(finished_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     exit_code=exit_code, events=self.seq,
                     timing_reconciled=timing_fixed, timing_max_shift_s=timing_shift)
+        # The simulator's own end-of-run line, stored so the history page never has to
+        # re-read a CSV to show ASR.
+        if summary:
+            meta["summary"] = summary
         with open(path, "w") as fh:
             json.dump(meta, fh, indent=2)
 
@@ -165,6 +169,10 @@ def list_runs(limit=200):
             "trace": eff.get("trace"),
             "blockchain": eff.get("blockchain"),
             "has_events": os.path.exists(os.path.join(d, "events.jsonl")),
+            "gnnDetect": eff.get("gnnDetect"),
+            "llmReason": eff.get("llmReason"),
+            "lwMode": eff.get("lwMode"),
+            "summary": meta.get("summary"),
         })
         if len(out) >= limit:
             break

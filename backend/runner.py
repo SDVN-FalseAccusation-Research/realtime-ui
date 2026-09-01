@@ -125,7 +125,7 @@ class Run:
             "exit_code": self.exit_code, "state": self.state,
             "timing_reconciled": fixed, "timing_max_shift_s": shift,
         }))
-        self.store.close(self.exit_code, fixed, shift)
+        self.store.close(self.exit_code, fixed, shift, summary=self.parser.summary)
         await self.hub.finish(self.run_id)
 
     @staticmethod

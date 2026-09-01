@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAZD-SDVN · Previous simulations</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/sprites.css">
+<link rel="stylesheet" href="/static/css/runs.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1>FAZD-SDVN</h1>
+    <span class="sub">Previous simulations</span>
+    <span class="spacer"></span>
+    <span class="badge" id="count">—</span>
+    <a href="/" class="badge" style="text-decoration:none">New run</a>
+  </header>
+
+  <div class="runs-filters">
+    <input type="search" id="q" placeholder="Search run id, attack, trace…" style="max-width:280px">
+    <select id="f-attack"><option value="">all attacks</option></select>
+    <select id="f-defence">
+      <option value="">any defence</option>
+      <option value="none">undefended (baseline)</option>
+      <option value="blockchain">blockchain</option>
+      <option value="gnnDetect">GNN</option>
+      <option value="llmReason">LLM</option>
+      <option value="lwMode">lightweight</option>
+    </select>
+    <select id="f-outcome">
+      <option value="">any outcome</option>
+      <option value="ok">completed</option>
+      <option value="failed">failed / stopped</option>
+    </select>
+    <select id="f-topo">
+      <option value="">any topology</option>
+      <option value="200">200 vehicles</option>
+      <option value="small">under 200</option>
+    </select>
+    <span class="spacer" style="flex:1"></span>
+    <button id="refresh">Refresh</button>
+  </div>
+
+  <div class="runs-body">
+    <table class="runs" id="tbl">
+      <thead><tr>
+        <th data-sort="started">when</th>
+        <th data-sort="run_id">run</th>
+        <th data-sort="attackType">attack</th>
+        <th data-sort="attackPercent" class="num">pen%</th>
+        <th data-sort="topo">topology</th>
+        <th data-sort="defence">defence</th>
+        <th data-sort="accusations" class="num">accus.</th>
+        <th data-sort="asr" class="num">ASR</th>
+        <th data-sort="outcome">outcome</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p id="empty" class="muted" style="padding:24px">Loading…</p>
+  </div>
+</div>
+
+<script src="/static/js/runspage.js"></script>
+</body>
+</html>
