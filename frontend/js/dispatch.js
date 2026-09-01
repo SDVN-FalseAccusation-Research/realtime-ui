@@ -14,6 +14,15 @@
  */
 'use strict';
 
+/** Full-width, above the map: the one place a run-level failure cannot hide. */
+function banner(html, cls = '') {
+  const el = document.getElementById('run-banner');
+  if (!el) return;
+  el.className = cls;
+  el.innerHTML = html;
+  el.hidden = false;
+}
+
 const Dispatch = {
   cursor: 0,
   cfg: {},
@@ -360,10 +369,35 @@ const Dispatch = {
     },
 
     run_closed(ev) {
-      const ok = ev.exit_code === 0;
-      Sidebar.sys((ok ? '' : `<div class="err-line">simulator exited ${ev.exit_code}</div>`) +
+      // `state` before exit_code: a run the operator stopped exits -15 and is not a
+      // failure, and a `degraded` run exits 0 while having filed no accusations at all.
+      const st = ev.state || (ev.exit_code === 0 ? 'finished' : 'failed');
+      if (st === 'failed') {
+        banner(`<b>Simulator failed</b> — exited ${ev.exit_code}. ` +
+               `Nothing below this point is a result.`);
+      } else if (st === 'stopped') {
+        banner('<b>Stopped</b> — this run was ended by hand, so it is incomplete.', 'warn');
+      }
+      Sidebar.sys((st === 'finished' ? '' : `<div class="err-line">run ${st}</div>`) +
                   `<div class="kv"><span>timings</span><b>` +
                   `${ev.timing_reconciled} reconciled from CSV</b></div>`);
+    },
+
+    /* THE FAILURE THAT LOOKS LIKE SUCCESS. A defended run on an already-used ledger exits
+       0 and files zero accusations, because SC1 re-registers and the zk-STARK membership
+       gate then denies every vehicle. On a projector that reads as a perfect defence. */
+    run_degraded(ev) {
+      banner(`<b>Degraded run — no accusations were filed.</b> ${ev.detail || ''}`);
+    },
+
+    tailer_error(ev) {
+      banner('<b>Live verdict stream failed</b> — ' + (ev.detail || '') +
+             '. Verdicts will still appear, but only once the run finishes.', 'warn');
+    },
+
+    // Informational: what the tailer missed and the post-exit sweep had to supply.
+    late_decisions(ev) {
+      Sidebar.sys(`<div class="kv"><span>late verdicts</span><b>${ev.count}</b></div>`);
     },
 
     run_error(ev) {

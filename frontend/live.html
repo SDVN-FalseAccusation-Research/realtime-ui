@@ -20,6 +20,11 @@
     <a href="/" class="badge" style="text-decoration:none">New run</a>
   </header>
 
+  <!-- Non-zero exit, a degraded run, or a tailer failure. The spec (UI_DESIGN 11.3) calls
+       for "an explicit red banner, never a silent spinner" -- a line in the scrollable
+       sidebar feed is not that, and a degraded run writes nothing there at all. -->
+  <div id="run-banner" hidden></div>
+
   <main class="live-body">
 
     <!-- ───────────────────────────── 75% map ───────────────────────────── -->

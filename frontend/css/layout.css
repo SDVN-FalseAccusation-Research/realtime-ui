@@ -199,3 +199,19 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .68); }
 }
 #stack-note ul { margin: 5px 0 0; padding-left: 16px; }
 #stack-note li { margin: 3px 0; }
+
+/* Run-level failure banner on the live page. Full width, above the map, impossible to
+   miss from the back of a room — the one place a silent failure must not hide. */
+#run-banner {
+  padding: 10px 16px; font-size: 13px; line-height: 1.5;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--danger) 16%, var(--panel));
+  color: var(--ink);
+}
+#run-banner b { color: var(--danger); }
+#run-banner.warn { background: color-mix(in srgb, var(--warn) 16%, var(--panel)); }
+#run-banner.warn b { color: var(--warn); }
+#run-banner code {
+  font: 12px var(--mono); background: var(--panel-3);
+  border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px;
+}
