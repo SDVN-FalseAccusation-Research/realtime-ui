@@ -75,7 +75,8 @@ class RunStore:
                 self._fh.write(json.dumps(ev, separators=(",", ":")) + "\n")
         return ev
 
-    def close(self, exit_code=None, timing_fixed=0, timing_shift=0.0, summary=None):
+    def close(self, exit_code=None, timing_fixed=0, timing_shift=0.0, summary=None,
+              state=None):
         with self._lock:
             if self._fh:
                 self._fh.close()
@@ -89,6 +90,11 @@ class RunStore:
         meta.update(finished_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     exit_code=exit_code, events=self.seq,
                     timing_reconciled=timing_fixed, timing_max_shift_s=timing_shift)
+        # finished | stopped | degraded | failed. exit_code alone cannot tell a run the
+        # operator stopped (-15) from one that crashed, nor a `degraded` run (exit 0, zero
+        # accusations, dirty ledger) from a good one.
+        if state:
+            meta["state"] = state
         # The simulator's own end-of-run line, stored so the history page never has to
         # re-read a CSV to show ASR.
         if summary:
@@ -171,6 +177,7 @@ def list_runs(limit=200):
             "started": meta.get("started_utc"),
             "finished": meta.get("finished_utc"),
             "exit_code": meta.get("exit_code"),
+            "state": meta.get("state"),
             "events": meta.get("events"),
             "attackType": eff.get("attackType"),
             "attackPercent": eff.get("attackPercent"),

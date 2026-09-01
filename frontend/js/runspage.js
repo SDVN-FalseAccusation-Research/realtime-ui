@@ -27,6 +27,10 @@ function asr(r) {
 }
 
 function outcome(r) {
+  // `state` before exit_code: -15 means the operator pressed Stop, which is not a crash,
+  // and a `degraded` run exits 0 while having filed no accusations at all (dirty ledger).
+  if (r.state === 'stopped')  return { txt: 'stopped', cls: 'warn' };
+  if (r.state === 'degraded') return { txt: 'degraded — no accusations', cls: 'bad' };
   if (r.exit_code === 0) return { txt: 'completed', cls: 'good' };
   if (r.exit_code === null || r.exit_code === undefined)
     return { txt: 'running / incomplete', cls: 'warn' };
@@ -39,7 +43,7 @@ function key(r, k) {
     case 'defence': return defences(r).map(d => d[1]).join();
     case 'accusations': return (r.summary && r.summary.submitted) || -1;
     case 'asr': { const a = asr(r); return a === null ? -1 : a; }
-    case 'outcome': return r.exit_code === 0 ? 0 : 1;
+    case 'outcome': return r.exit_code === 0 && r.state !== 'degraded' ? 0 : 1;
     default: return r[k] === undefined || r[k] === null ? '' : r[k];
   }
 }
@@ -57,8 +61,10 @@ function passes(r) {
   } else if (d && Number(r[d]) !== 1) return false;
 
   const o = $('f-outcome').value;
-  if (o === 'ok' && r.exit_code !== 0) return false;
-  if (o === 'failed' && r.exit_code === 0) return false;
+  // A degraded run exits 0 but is not "ok" — it filed no accusations.
+  const good = r.exit_code === 0 && r.state !== 'degraded';
+  if (o === 'ok' && !good) return false;
+  if (o === 'failed' && good) return false;
 
   const t = $('f-topo').value;
   if (t === '200' && r.numVehicles !== 200) return false;

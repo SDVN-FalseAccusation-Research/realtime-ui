@@ -45,6 +45,7 @@ class Run:
         self._task = None
         self.tailer = None
         self.admitted = None             # from "ZKP membership: admitted=N denied=M"
+        self.stopped_by_user = False     # a deliberate stop is NOT a failure
         # Every event the CSV path has already announced. The tailer emits verdicts DURING
         # the run and _finalise() re-reads the same files after exit, so without this every
         # decision would appear twice. See tailer.event_key.
@@ -97,7 +98,15 @@ class Run:
             sim_log.close()
             err_log.close()
 
-        self.state = "finished" if self.exit_code == 0 else "failed"
+        # A run the operator stopped exits -15 and must not be filed alongside crashes.
+        # On demo day you stop a run early to move on; the history list showing that in red
+        # next to a real crash is both wrong and alarming at the worst moment.
+        if self.exit_code == 0:
+            self.state = "finished"
+        elif self.stopped_by_user:
+            self.state = "stopped"
+        else:
+            self.state = "failed"
         # A DEFENDED RUN ON A DIRTY LEDGER EXITS 0 AND DOES NOTHING.
         #
         # SC1 re-registers happily ("registered=260 failed=0") but the zk-STARK membership
@@ -189,7 +198,8 @@ class Run:
             "exit_code": self.exit_code, "state": self.state,
             "timing_reconciled": fixed, "timing_max_shift_s": shift,
         }))
-        self.store.close(self.exit_code, fixed, shift, summary=self.parser.summary)
+        self.store.close(self.exit_code, fixed, shift, summary=self.parser.summary,
+                         state=self.state)
         await self.hub.finish(self.run_id)
 
     # Per-accusation verdicts live only in _decisions.csv — the simulator prints no verdict
@@ -204,6 +214,7 @@ class Run:
 
     async def stop(self):
         """SIGTERM, then SIGKILL if it will not go."""
+        self.stopped_by_user = True
         if self.proc and self.proc.returncode is None:
             self.proc.terminate()
             try:
