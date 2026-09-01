@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Simulation run output (large, regenerable, and written into the ns-3 results tree)
+runs/
+
+# Recorded fixture logs are COMMITTED on purpose (see tests/fixtures/README) — they are
+# what makes the parser testable without ns-3. Only oversized raw CSVs are excluded.
+tests/fixtures/*_beacons.csv
+tests/fixtures/*_reputation.csv
+tests/fixtures/*_trust_refresh.csv
+
+# NOTE: assets/ is deliberately NOT ignored. The generated .gz files are ~1 MB total and
+# regenerating them needs SUMO, an OSM download and a ~15 min scenario build — a fragile
+# chain that has already cost this project time. Committing them makes a fresh clone
+# runnable immediately. Rebuild with: python3 tools/build_assets.py

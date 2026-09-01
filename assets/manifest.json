@@ -1,0 +1,49 @@
+{
+  "generated_from": {
+    "net": "manhattan.net.xml",
+    "fcd": "manhattan.fcd.xml"
+  },
+  "world": {
+    "W": 3034.96,
+    "H": 2506.26,
+    "convBoundary": "0.00,0.00,3034.96,2506.26"
+  },
+  "mobility": {
+    "N": 200,
+    "T": 1200,
+    "dt": 1.0,
+    "t_start": 0.0,
+    "t_end": 1199.0,
+    "xy_scale": 20,
+    "classes": {
+      "passenger": 100,
+      "bus": 30,
+      "truck": 40,
+      "motorcycle": 30
+    }
+  },
+  "layers": {
+    "roads": "roads.svg.gz",
+    "buildings": "buildings.svg.gz"
+  },
+  "arrays": {
+    "x": "pos_x.u16.gz",
+    "y": "pos_y.u16.gz",
+    "heading": "heading.u8.gz",
+    "encoding": "raw",
+    "layout": "node-major: index = node*T + t"
+  },
+  "edge_classes": {
+    "highway.primary": 231,
+    "highway.service": 18,
+    "highway.living_street": 9,
+    "highway.secondary": 343,
+    "highway.residential": 226,
+    "highway.unclassified": 25,
+    "highway.tertiary": 17,
+    "highway.motorway_link": 5,
+    "highway.tertiary_link": 2,
+    "highway.motorway": 3,
+    "highway.primary_link": 2
+  }
+}
