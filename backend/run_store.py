@@ -100,12 +100,23 @@ class RunStore:
         """Persist the in-memory events again after reconcile() corrected their times.
 
         Atomic (tmp + rename) so a reader never sees a half-written log.
+
+        THE HANDLE MUST BE REOPENED. os.replace unlinks the inode this store is still
+        appending to, so every later write lands in an orphaned file and is lost. That cost
+        exactly one event — the terminal `run_closed`, which is appended after this — and it
+        was invisible because the live WebSocket had already broadcast it: only the durable
+        log was short, and only by one line. Runs from before this fix show it as
+        `events.jsonl` having one fewer line than run_config.json's `events` count.
         """
-        tmp = self.events_path + ".tmp"
-        with open(tmp, "w") as fh:
-            for ev in self.events:
-                fh.write(json.dumps(ev, separators=(",", ":")) + "\n")
-        os.replace(tmp, self.events_path)
+        with self._lock:
+            tmp = self.events_path + ".tmp"
+            with open(tmp, "w") as fh:
+                for ev in self.events:
+                    fh.write(json.dumps(ev, separators=(",", ":")) + "\n")
+            if self._fh:
+                self._fh.close()
+            os.replace(tmp, self.events_path)
+            self._fh = open(self.events_path, "a", buffering=1)
 
     # -- reading ------------------------------------------------------------------------
     def since(self, from_seq):

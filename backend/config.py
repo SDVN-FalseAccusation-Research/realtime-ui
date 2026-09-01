@@ -26,6 +26,13 @@ BINARY = os.path.join(NS3_ROOT, "build", "scratch",
 # All UI runs live here, kept apart from sweep output so neither can confuse the other.
 RESULTS_UI = os.path.join(NS3_ROOT, "results", "ui")
 
+# tools/demo_stack.sh writes `ledger-fresh` here after a successful Fabric reset, and the
+# server renames it to `ledger-used` when a defended run consumes it. See health.ledger():
+# ONE defended run per ledger, or the zk-STARK membership gate denies every vehicle.
+STACK_LOGS = os.path.join(UI_ROOT, ".stack-logs")
+LEDGER_FRESH = os.path.join(STACK_LOGS, "ledger-fresh")
+LEDGER_USED = os.path.join(STACK_LOGS, "ledger-used")
+
 ASSETS = os.path.join(UI_ROOT, "assets")
 FRONTEND = os.path.join(UI_ROOT, "frontend")
 
@@ -52,6 +59,16 @@ TRACE_END_S = 1199.0
 # Sidecar / infrastructure ports probed by health.py
 PORTS = {"zkp": 7070, "gnn": 7071, "llm": 7072, "bridge": 7545}
 
+# --- the GNN the banked results were produced with -----------------------------------
+# The sidecar serves whatever GNN_ARTIFACTS points at, and its own default is a DIFFERENT
+# model at a different threshold (tau 0.6795 against v16's 0.4978). Both answer
+# "gnn-v1 (trained)" to a digest, so the descriptor cannot tell them apart -- health.py
+# compares the served `model_hash` against this manifest instead. Getting this wrong does
+# not fail loudly; it just quietly scores the run with the wrong model.
+GNN_MODEL = os.environ.get("FYP_GNN_MODEL", "gnn_v16_labelfix")
+GNN_MANIFEST = os.path.join(BCD_DIR, "gnn-sidecar", "artifacts", GNN_MODEL,
+                            "manifest.json")
+
 # --- demo presets --------------------------------------------------------------------
 # Derived from measured timings (see new-task/UI_DESIGN.md 11.2). numRsus is 56, not 64:
 # there is an open heap-corruption bug at >=60 RSUs with 200 vehicles (TASK 5b).
@@ -69,6 +86,16 @@ PRESETS = {
                  "_label": "Extended", "_desc": "18 attacks + 3 warmup, ~10 min display"},
     "evidence": {**BASE, "attackPercent": 40, "attackRounds": 3, "attackWindow": 840,
                  "_label": "Full evidence", "_desc": "240 opportunities, report-comparable"},
+    # THE DEMO-DAY PRESET. The four above were measured on UNDEFENDED runs and take no
+    # account of the per-accusation bridge round-trip, which is most of a defended run's
+    # cost. Measured on this machine with the full stack up:
+    #   smoke defended (4 attacks, simTime 360 s)   -> 199 s wall, i.e. 1.8x faster than 1x
+    # attackWindow 540 gives simTime 600 s, so ~10 minutes of display inside the agreed
+    # 8-12, and ns-3 still finishes well before the audience does.
+    "defended": {**BASE, "attackPercent": 9, "attackRounds": 1, "attackWindow": 540,
+                 "blockchain": 1, "secureBridge": 1, "gnnDetect": 1, "llmReason": 1,
+                 "_label": "Defended demo",
+                 "_desc": "full stack, 18 attacks + 3 warmup, ~10 min display"},
 }
 DEFAULT_PRESET = "standard"
 

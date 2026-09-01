@@ -17,3 +17,6 @@ tests/fixtures/*_trust_refresh.csv
 # regenerating them needs SUMO, an OSM download and a ~15 min scenario build — a fragile
 # chain that has already cost this project time. Committing them makes a fresh clone
 # runnable immediately. Rebuild with: python3 tools/build_assets.py
+
+# runtime state written by tools/demo_stack.sh: pids, service logs, the ledger marker
+.stack-logs/

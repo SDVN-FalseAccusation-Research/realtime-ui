@@ -139,6 +139,9 @@ function renderAttacks() {
 
 function renderDefence() {
   const can = (S.health && S.health.can) || {};
+  // The note depends on which layers THIS config asks for, so it is re-derived whenever a
+  // toggle changes, not only when health is polled.
+  renderStackNote(S.health || {});
   $('defence-toggles').innerHTML = DEFENCE.map(([flag, name, dep, why]) => {
     const avail = dep ? !!can[dep] : true;
     const on = !!S.cfg[flag];
@@ -173,6 +176,14 @@ function renderPresets() {
 function applyPreset(key) {
   const p = { ...S.meta.presets[key] };
   delete p._label; delete p._desc;
+  // A preset may ask for defence layers (the demo one does). Drop any whose service is not
+  // up rather than sending the flag anyway: the simulator would accept it and quietly
+  // degrade, which is the one failure mode that looks like a successful run.
+  const can = (S.health && S.health.can) || {};
+  for (const [flag, dep] of [['blockchain','blockchain'], ['secureBridge','blockchain'],
+                             ['gnnDetect','gnn'], ['llmReason','llm']]) {
+    if (p[flag] && !can[dep]) delete p[flag];
+  }
   Object.assign(S.cfg, p);
   S.cfg._preset = key;
   ['numVehicles','numRsus','numControllers','attackWindow','attackRounds','seed',
@@ -191,14 +202,68 @@ function renderTrace() {
 
 function renderHealth() {
   const h = S.health || {};
+  const can = h.can || {};
   const bits = [];
   for (const [k, label] of [['zkp','ZKP'],['gnn','GNN'],['llm','LLM'],['bridge','Bridge']]) {
-    const up = h[k] && h[k].up;
-    bits.push(`<span class="badge"><span class="dot ${up ? 'up' : 'down'}"></span>${label}</span>`);
+    // The GNN gets `can.gnn`, not `up`. A sidecar serving the WRONG model answers every
+    // probe happily; a green dot there would be the most expensive kind of true statement.
+    const ok = k === 'gnn' ? !!can.gnn : !!(h[k] && h[k].up);
+    bits.push(`<span class="badge"><span class="dot ${ok ? 'up' : 'down'}"></span>${label}</span>`);
   }
   const d = h.docker && h.docker.up;
   bits.push(`<span class="badge"><span class="dot ${d ? 'up' : 'down'}"></span>Docker</span>`);
   $('health-strip').innerHTML = bits.join(' ');
+  renderStackNote(h);
+}
+
+/* What is missing, and the one command that fixes it.
+ *
+ * Keyed on what is AVAILABLE, not on what the current config asks for: an unavailable
+ * layer's toggle is rendered disabled, so a note that waited for the user to request the
+ * layer could never appear at all. The operator needs this before they choose, not after.
+ */
+function renderStackNote(h) {
+  const el = $('stack-note');
+  if (!el) return;
+  const can = h.can || {};
+  const items = [];
+
+  // ONE DEFENDED RUN PER LEDGER. Raised even when everything is green, because this is the
+  // failure that looks like success: the run exits 0, the summary prints, and not a single
+  // accusation is filed.
+  const led = h.ledger || {};
+  if (led.state === 'used') {
+    items.push(`<b>Ledger already used</b> — ${led.note || 'reset it before a defended run.'}`);
+  } else if (led.state === 'unknown' && can.blockchain) {
+    items.push(`<b>Ledger state unknown</b> — ${led.note || ''}`);
+  }
+
+  if (!can.blockchain) {
+    const parts = [];
+    if (!(h.bridge && h.bridge.up)) parts.push('the bridge on :7545 is down');
+    if (!(h.zkp && h.zkp.up)) parts.push('the zk-STARK sidecar on :7070 is down');
+    items.push(`<b>No defended run available</b> — ${parts.join(' and ')}. ` +
+               'Blockchain, ZKP, GNN and LLM all sit on the <code>--blockchain=1</code> path.');
+  }
+  if (!can.gnn) {
+    const g = h.gnn || {};
+    items.push(g.model_note
+      ? `<b>GNN model mismatch</b> — ${g.model_note}.`
+      : '<b>GNN unavailable</b> — :7071 is not serving a trained model.');
+  }
+  if (!can.llm) items.push('<b>LLM unavailable</b> — the sidecar on :7072 is down.');
+  if (h.docker && !h.docker.up) {
+    items.push(h.docker.reason === 'no_permission'
+      ? `<b>Docker not permitted</b> — ${h.docker.note}`
+      : '<b>Docker is down</b> — Fabric cannot be reset, so the ledger cannot be made fresh.');
+  }
+
+  if (!items.length) { el.hidden = true; return; }
+  el.hidden = false;
+  const cmd = (h.ledger && h.ledger.state === 'used' && (h.can || {}).blockchain)
+    ? 'realtime-ui/tools/demo_stack.sh reset'      // the stack is up; only the ledger is stale
+    : 'realtime-ui/tools/demo_stack.sh up';
+  el.innerHTML = `<ul>${items.map(i => `<li>${i}</li>`).join('')}</ul><code>${cmd}</code>`;
 }
 
 /* ------------------------------------------------------------- advanced modal -- */

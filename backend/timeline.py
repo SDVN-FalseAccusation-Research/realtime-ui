@@ -50,7 +50,18 @@ STAGE_OFFSET = {
     "rsu_status": 1.00,
     "controller_failover": 1.10,
     "accusation_skipped": 0.0,
+    # The defence pipeline, which reaches the UI from the CSVs via backend/tailer.py rather
+    # than from stdout (the simulator prints no verdict line at all). Placed AFTER the
+    # attack-side stdout stages above so one accusation renders in causal order:
+    #   accuse -> tamper -> pqc -> lw -> [zkp -> gnn -> llm] -> incident -> chain -> verdict
+    "llm_incident": 1.15,
+    "chain_tx": 1.20,
+    "decision": 1.30,
+    "stake": 1.40,
 }
+
+# `layer` events all share one type, so they are keyed by their layer instead.
+LAYER_OFFSET = {"pqc": 0.95, "zkp": 1.02, "gnn": 1.06, "llm": 1.10}
 
 
 class Timeline:
@@ -113,7 +124,9 @@ class Timeline:
         eid = ev.get("event")
         if eid is not None and eid in self._t_of_event:
             base = self._t_of_event[eid]
-            ev["t"] = round(base + STAGE_OFFSET.get(etype, 0.5), 3)
+            off = (LAYER_OFFSET.get(ev.get("layer"), 1.0) if etype == "layer"
+                   else STAGE_OFFSET.get(etype, 0.5))
+            ev["t"] = round(base + off, 3)
             ev["t_exact"] = False
             self._last_t = max(self._last_t, ev["t"])
             return ev
@@ -165,6 +178,8 @@ class Timeline:
         fixed, worst = 0, 0.0
         for ev in events:
             eid = ev.get("event")
+            if ev.get("t_exact"):
+                continue          # already carries the CSV's own time; nothing to correct
             if eid in shift:
                 ev["t"] = round(ev["t"] + shift[eid], 3)
                 ev["t_exact"] = True

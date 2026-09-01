@@ -2,6 +2,12 @@
 """Headless browser check: screenshot a page and report its console errors.
 
     ../.venv/bin/python tools/shot.py <url> <out.png> [--wait 12] [--width 1600] [--height 1000]
+                                      [--eval "<js>"] [--settle 2]
+
+`--eval` runs one expression in the page after it has loaded and before the screenshot, so
+a state the UI only reaches through interaction can still be photographed (toggling a
+defence flag, opening the advanced modal). Its value is printed, and a thrown exception is
+an error like any other. `--settle` is how long to wait afterwards for the re-render.
 
 Why not `google-chrome --screenshot`? Because `--virtual-time-budget` races the WebSocket
 handshake — the page renders before the event stream has connected, so you photograph an
@@ -33,7 +39,7 @@ def arg(name, default):
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
 
 
-async def run(url, out, wait_s, width, height):
+async def run(url, out, wait_s, width, height, js=None, settle=2.0):
     profile = tempfile.mkdtemp(prefix="shot-")
     proc = subprocess.Popen(
         [CHROME, "--headless=new", "--disable-gpu", "--no-sandbox", "--mute-audio",
@@ -103,6 +109,18 @@ async def run(url, out, wait_s, width, height):
             await send("Page.navigate", {"url": url})
             await drain(wait_s)
 
+            if js:
+                ev_id = await send("Runtime.evaluate",
+                                   {"expression": js, "returnByValue": True,
+                                    "awaitPromise": True, "userGesture": True})
+                res = await drain(settle)
+                r = res.get(ev_id, {}).get("result", {})
+                if r.get("exceptionDetails"):
+                    d = r["exceptionDetails"]
+                    errors.append(d.get("exception", {}).get("description") or d.get("text"))
+                else:
+                    print(f"eval -> {r.get('result', {}).get('value')!r}")
+
             shot_id = await send("Page.captureScreenshot", {"format": "png"})
             res = await drain(3.0)
             data = res.get(shot_id, {}).get("result", {}).get("data")
@@ -138,4 +156,6 @@ if __name__ == "__main__":
     sys.exit(asyncio.run(run(sys.argv[1], sys.argv[2],
                              float(arg("--wait", 12)),
                              int(arg("--width", 1600)),
-                             int(arg("--height", 1000)))))
+                             int(arg("--height", 1000)),
+                             arg("--eval", None),
+                             float(arg("--settle", 2)))))

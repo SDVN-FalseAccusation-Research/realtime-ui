@@ -100,6 +100,17 @@ async def post_run(body: dict):
         return JSONResponse(status_code=400,
                             content={"error": exc.reason, "field": exc.field})
 
+    # ONE DEFENDED RUN PER LEDGER. A second run against a consumed ledger exits 0 and
+    # files no accusations at all — SC1 re-registers, then the zk-STARK membership gate
+    # denies every vehicle. Refusing here is the whole point: the failure is otherwise
+    # indistinguishable from a successful run in which the attack simply never fired.
+    if effective.get("blockchain"):
+        led = health.ledger()
+        if led["state"] == "used":
+            return JSONResponse(status_code=409,
+                                content={"error": led["note"], "field": "blockchain",
+                                         "ledger": led})
+
     store = run_store.RunStore(run_id).open(body, effective, argv)
     try:
         await MANAGER.start(run_id, argv, effective, store)
@@ -107,6 +118,9 @@ async def post_run(body: dict):
         raise HTTPException(409, str(exc))
     except FileNotFoundError as exc:
         raise HTTPException(503, f"cannot start the simulator: {exc}")
+
+    if effective.get("blockchain"):
+        health.consume_ledger(run_id)      # only once it has actually started
 
     return {"run_id": run_id, "argv": argv, "effective": effective,
             "ws": f"/ws/runs/{run_id}"}

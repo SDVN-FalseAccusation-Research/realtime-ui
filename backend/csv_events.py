@@ -40,6 +40,16 @@ def _rows(path):
         return []
 
 
+def _feed(path, rows=None):
+    """Rows to convert: either a caller-supplied batch, or the whole file.
+
+    `rows` is what makes the live tailer possible — backend/tailer.py parses the bytes that
+    have just been appended to a CSV and hands them straight to these same converters, so the
+    live path and tools/import_run.py can never disagree about the same run.
+    """
+    return _rows(path) if rows is None else rows
+
+
 def find(run_dir, kind):
     """`<anything>_<kind>.csv` inside run_dir — the same glob contract pem.py uses."""
     import glob
@@ -66,14 +76,14 @@ def _b(row, key):
 
 
 # ---------------------------------------------------------------------- decisions ----
-def decision_events(path, src=None):
+def decision_events(path, src=None, rows=None):
     """_decisions.csv -> one `decision` event per submitted accusation.
 
     Stamped with `t_detect`, which is when the controller actually ruled — so the verdict
     lands after the accusation on the timeline rather than on top of it.
     """
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         if not _b(row, "submitted"):
             continue
         eid = _i(row, "event_id", -1)
@@ -105,14 +115,14 @@ def decision_events(path, src=None):
     return out
 
 
-def accusation_events(path, src=None):
+def accusation_events(path, src=None, rows=None):
     """_decisions.csv -> one `accusation` event per submitted row.
 
     Used only by the importer; a live run gets these from stdout, where they carry extra
     detail (distance, victim density, in-range) that the CSV does not record.
     """
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         if not _b(row, "submitted"):
             continue
         eid = _i(row, "event_id", -1)
@@ -135,10 +145,10 @@ def accusation_events(path, src=None):
 
 
 # ------------------------------------------------------------------- layer events ----
-def gnn_events(path, src=None):
+def gnn_events(path, src=None, rows=None):
     """_gnn_decision.csv -> a `layer` event for the GNN (and the LLM verdict it carries)."""
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         eid = _i(row, "event_id", -1)
         if eid < 0:
             continue
@@ -168,10 +178,10 @@ def gnn_events(path, src=None):
     return out
 
 
-def zkp_events(path, src=None):
+def zkp_events(path, src=None, rows=None):
     """_zkp.csv -> a `layer` event for the zk-STARK gate."""
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         eid = _i(row, "event_id", -1)
         res = row.get("zkp_result") or "NA"
         if eid < 0 or res == "NA":
@@ -192,14 +202,14 @@ def zkp_events(path, src=None):
     return out
 
 
-def llm_incident_events(path, src=None):
+def llm_incident_events(path, src=None, rows=None):
     """_llm_incident.csv -> escalations that actually led to mitigation.
 
     One row per escalated + confirmed + mitigated false accusation, so `action` here is the
     real consequence (`credential_revoked|isolated`), not just a verdict.
     """
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         eid = _i(row, "event_id", -1)
         if eid < 0:
             continue
@@ -215,10 +225,10 @@ def llm_incident_events(path, src=None):
     return out
 
 
-def chain_events(path, src=None):
+def chain_events(path, src=None, rows=None):
     """_audit.csv -> a `chain_tx` per on-chain SC2 outcome submission."""
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         eid = _i(row, "event_id", -1)
         if eid < 0:
             continue
@@ -237,10 +247,10 @@ def chain_events(path, src=None):
     return out
 
 
-def controller_events(path, src=None):
+def controller_events(path, src=None, rows=None):
     """_controller_audit.csv -> `controller_failover` on the rows where one happened."""
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         if not _b(row, "failover"):
             continue
         eid = _i(row, "event_id", -1)
@@ -257,15 +267,16 @@ def controller_events(path, src=None):
     return out
 
 
-def rsu_events(path, src=None):
+def rsu_events(path, src=None, rows=None, seen=None):
     """_rsu_audit.csv -> `rsu_status` only where the status CHANGES.
 
     The file has a row per event; emitting all of them would flood the stream with
     unchanged ACTIVE rows. 0=ACTIVE 1=QUARANTINED 2=REMOVED.
     """
     names = {0: "ACTIVE", 1: "QUARANTINED", 2: "REMOVED"}
-    seen, out = {}, []
-    for row in _rows(path):
+    seen = {} if seen is None else seen
+    out = []
+    for row in _feed(path, rows):
         r = _i(row, "serving_rsu", -1)
         if r < 0:
             continue
@@ -284,10 +295,10 @@ def rsu_events(path, src=None):
     return out
 
 
-def stake_events(path, src=None):
+def stake_events(path, src=None, rows=None):
     """_stake.csv -> a `stake` event where something was actually burned."""
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         burned = _f(row, "stake_burned")
         if burned <= 0:
             continue
@@ -303,10 +314,10 @@ def stake_events(path, src=None):
     return out
 
 
-def lkh_events(path, src=None):
+def lkh_events(path, src=None, rows=None):
     """_lkh.csv -> `keymgmt` re-key records (written in bulk at end of run)."""
     out = []
-    for row in _rows(path):
+    for row in _feed(path, rows):
         out.append({
             "type": "keymgmt", "phase": "rekey", "t_exact": True,
             "kind": row.get("kind"), "zone": _i(row, "zone"),
@@ -334,7 +345,7 @@ def trust_refresh_rows(path, event_id=None, limit=400):
     it is deliberately not used here.
     """
     out = []
-    for row in _rows(path):
+    for row in _rows(path):          # not _feed: this reader is not on the live path
         if event_id is not None and _i(row, "event_id", -1) != event_id:
             continue
         out.append({
