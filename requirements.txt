@@ -1,0 +1,4 @@
+# Deliberately minimal. The metrics page reuses blockchain-defence/pem.py, which is
+# stdlib-only, so no numpy/pandas/matplotlib are needed anywhere in this project.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
