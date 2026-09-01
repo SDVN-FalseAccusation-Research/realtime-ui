@@ -19,7 +19,7 @@ import config
 import health
 import run_store
 from flags import ATTACK_TYPES, REGISTRY
-from hub import Client, Hub, pump
+from hub import Client, Hub
 from runner import RunManager
 from validate import Rejected, build_argv
 
@@ -194,8 +194,34 @@ async def ws_run(ws: WebSocket, run_id: str, from_seq: int = Query(1, ge=1)):
 
 
 # --------------------------------------------------------------------------- static ---
-if os.path.isdir(config.ASSETS):
-    app.mount("/assets", StaticFiles(directory=config.ASSETS), name="assets")
+_ASSET_TYPES = {".json": "application/json", ".svg": "image/svg+xml",
+                ".u16": "application/octet-stream", ".u8": "application/octet-stream"}
+
+
+@app.get("/assets/{name}")
+def asset(name: str):
+    """Serve the generated assets, transparently handling the pre-gzipped ones.
+
+    build_assets.py writes `roads.svg.gz`, `pos_x.u16.gz` etc. Serving those with
+    `Content-Encoding: gzip` lets the browser inflate them itself, so the frontend can
+    `fetch('/assets/pos_x.u16')` and get raw bytes straight into a typed array — no
+    DecompressionStream, no client-side gunzip, and the ~1 MB payload stays compressed on
+    the wire.
+    """
+    if "/" in name or "\\" in name or name.startswith("."):
+        raise HTTPException(400, "bad asset name")
+    base = os.path.join(config.ASSETS, name)
+    ext = os.path.splitext(name)[1]
+    media = _ASSET_TYPES.get(ext, "application/octet-stream")
+
+    if os.path.exists(base):
+        return FileResponse(base, media_type=media)
+    if os.path.exists(base + ".gz"):
+        return FileResponse(base + ".gz", media_type=media,
+                            headers={"Content-Encoding": "gzip"})
+    raise HTTPException(404, f"no such asset: {name} (run tools/build_assets.py)")
+
+
 if os.path.isdir(config.FRONTEND):
     app.mount("/static", StaticFiles(directory=config.FRONTEND), name="static")
 

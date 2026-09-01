@@ -114,6 +114,9 @@ class Run:
         csv_path = self.store.decisions_csv()
         if csv_path:
             fixed, shift = self.timeline.reconcile(self.store.events, csv_path)
+            for ev in self._decisions_from_csv(csv_path):
+                self.store.append(ev)
+                await self.hub.broadcast(self.run_id, ev)
             if fixed:
                 self.store.rewrite_events()
 
@@ -124,6 +127,67 @@ class Run:
         }))
         self.store.close(self.exit_code, fixed, shift)
         await self.hub.finish(self.run_id)
+
+    @staticmethod
+    def _decisions_from_csv(path):
+        """Per-accusation verdicts, which stdout never prints.
+
+        The simulator emits no per-event decision line at all — `accepted`, `w1`, `w2` and
+        which layer stopped it exist only in _decisions.csv, which is complete only after
+        the process exits. So the verdicts are emitted here, stamped with the CSV's own
+        `t_detect` so they land at the right moment on the timeline.
+
+        This is not as late as it sounds. The backend does not pace, and the simulator runs
+        ~3.9x faster than 1x display, so it finishes at roughly a quarter of the way
+        through the audience's viewing — these events are normally sitting in the client's
+        buffer well before the playback cursor reaches them. The frontend back-fills any
+        that arrive behind the cursor (the first one or two).
+
+        `--liveStream=1` (P8) would emit these in real time; the contract does not change.
+        """
+        import csv as _csv
+        out = []
+        try:
+            with open(path, newline="") as fh:
+                for row in _csv.DictReader(fh):     # quoted fields -> never split(',')
+                    if (row.get("submitted") or "").strip() != "1":
+                        continue
+                    try:
+                        eid = int(row["event_id"])
+                        t = float(row.get("t_detect") or row.get("t_attack_start") or 0)
+                    except (KeyError, TypeError, ValueError):
+                        continue
+
+                    def num(key, cast=float, default=0):
+                        try:
+                            return cast((row.get(key) or "").strip())
+                        except (TypeError, ValueError):
+                            return default
+
+                    out.append({
+                        "type": "decision", "event": eid, "t": round(t, 3),
+                        "t_exact": True,
+                        "accepted": (row.get("accepted") or "").strip() == "1",
+                        "victim_honest": (row.get("victim_honest") or "").strip() == "1",
+                        "w1": num("w1"), "w2": num("w2"),
+                        "controller": {"c": num("controller_id", int)},
+                        "rsu": {"r": num("serving_rsu", int)},
+                        "reports": {"true": num("rsu_true", int),
+                                    "false": num("rsu_false", int),
+                                    "trusted_true": num("trusted_true", int),
+                                    "trusted_false": num("trusted_false", int)},
+                        "stopped_by": (row.get("stopped_by_layer") or "").strip() or None,
+                        "divergence": (row.get("divergence") or "").strip() == "1",
+                        "blockchain_blocked": (row.get("blockchain_blocked") or "").strip() == "1",
+                        "divergence_reason": (row.get("divergence_reason") or "").strip(),
+                        "blacklisted": (row.get("blacklisted") or "").strip() == "1",
+                        "trust_after": num("trust_after"),
+                        "latency_us": {k: num(f"l_{k}_us")
+                                       for k in ("pqc", "zkp", "gnn", "llm", "bc")},
+                    })
+        except OSError:
+            pass
+        return out
 
     async def stop(self):
         """SIGTERM, then SIGKILL if it will not go."""

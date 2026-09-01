@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAZD-SDVN · Run configuration</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1>FAZD-SDVN</h1>
+    <span class="sub">False-accusation attack &amp; defence — live demonstrator</span>
+    <span class="spacer"></span>
+    <span id="health-strip"></span>
+    <a href="/runs" class="badge" id="history-link" style="text-decoration:none">History</a>
+  </header>
+
+  <main class="cfg-body">
+
+    <!-- ─────────────────────────────── A. scenario ─────────────────────────────── -->
+    <section class="card">
+      <h2>Scenario</h2>
+      <div class="card-scroll">
+
+        <div class="field">
+          <label>Attack <span class="val" id="atk-val">single_data</span></label>
+          <div class="attack-grid" id="attack-grid"></div>
+        </div>
+
+        <div class="field">
+          <label>Attacker penetration
+            <span class="val"><b id="pct-val">5</b>% — <span id="pct-n">10</span> attackers</span>
+          </label>
+          <input type="range" id="attackPercent" min="0" max="80" step="1" value="5">
+        </div>
+
+        <div class="field">
+          <label>Mobility</label>
+          <div class="row2">
+            <button id="trace-manhattan" aria-pressed="true">Manhattan map</button>
+            <button id="trace-synthetic" aria-pressed="false">Synthetic grid</button>
+          </div>
+        </div>
+
+        <div class="row3">
+          <div class="field">
+            <label>Vehicles <span class="val" id="v-max"></span></label>
+            <input type="number" id="numVehicles" value="200" min="1" max="200">
+          </div>
+          <div class="field">
+            <label>RSUs</label>
+            <input type="number" id="numRsus" value="56" min="1" max="256">
+          </div>
+          <div class="field">
+            <label>Controllers</label>
+            <input type="number" id="numControllers" value="4" min="1" max="32">
+          </div>
+        </div>
+
+        <div class="row3">
+          <div class="field">
+            <label>Attack window <span class="val">s</span></label>
+            <input type="number" id="attackWindow" value="300" min="1">
+          </div>
+          <div class="field">
+            <label>Rounds</label>
+            <input type="number" id="attackRounds" value="1" min="1">
+          </div>
+          <div class="field">
+            <label>Seed</label>
+            <input type="number" id="seed" value="1" min="1">
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────── B. defence ──────────────────────────────── -->
+    <section class="card">
+      <h2>Defence stack</h2>
+      <div class="card-scroll" id="defence-toggles"></div>
+      <p style="font-size:10px;color:var(--ink-faint);margin:10px 0 0;line-height:1.5">
+        A layer whose service is not running is disabled here rather than silently
+        degrading mid-run. Probes match <code>run_sweep.sh</code>'s preflight.
+      </p>
+    </section>
+
+    <!-- ─────────────────────────────── C. summary ──────────────────────────────── -->
+    <section class="card">
+      <h2>Run</h2>
+
+      <div class="presets" id="presets"></div>
+      <div id="warnings"></div>
+      <div id="error"></div>
+
+      <div class="estimate">
+        <div>accusations<b id="est-acc">13</b></div>
+        <div>simulated<b id="est-sim">365 s</b></div>
+        <div>ns-3 wall<b id="est-wall">~94 s</b></div>
+        <div>display @1×<b id="est-disp">6 min</b></div>
+      </div>
+
+      <label style="font-size:11px;color:var(--ink-dim);margin-bottom:4px;display:block">
+        Exact command
+      </label>
+      <pre class="cmd" id="cmd">…</pre>
+
+      <div class="cfg-actions" style="margin-top:12px">
+        <button id="more-btn">More…</button>
+        <span class="spacer" style="flex:1"></span>
+        <button class="primary" id="run-btn">Run simulation</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ───────────────────────────── advanced flags modal ─────────────────────────── -->
+<dialog class="modal" id="more-modal">
+  <div class="modal-head">
+    <h2>Advanced parameters</h2>
+    <span class="badge" id="flag-count"></span>
+    <button id="modal-close">Close</button>
+  </div>
+  <div class="tabs" id="modal-tabs"></div>
+  <div class="modal-body"><div class="flag-grid" id="flag-grid"></div></div>
+  <div class="modal-foot">
+    <button id="reset-tab">Reset this tab to defaults</button>
+    <span style="flex:1"></span>
+    <span style="font-size:11px;color:var(--ink-faint);align-self:center">
+      Defaults are read from the simulator itself, so this form can never offer a flag it
+      does not have.
+    </span>
+  </div>
+</dialog>
+
+<script src="/static/js/configpage.js"></script>
+</body>
+</html>

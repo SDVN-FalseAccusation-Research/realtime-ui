@@ -1,0 +1,101 @@
+/* Design tokens — the SINGLE source of truth for colour.
+ *
+ * The old gamified UI kept two palettes (a JS `PALETTE` for packets, CSS vars for
+ * sprites) and they had already drifted: PALETTE.honest #12a594 vs --honest #0d9488.
+ * Here there is one. JS reads these via getComputedStyle when it needs a literal.
+ *
+ * Theme: dark cyber-defence / SOC. Designed to be read at projector distance, so the
+ * semantic colours are saturated against a near-black ground and every node type is also
+ * distinguishable BY SHAPE — colour is reinforcement, never the only channel.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- surfaces ---- */
+  --bg:          #070b10;   /* page ground */
+  --bg-map:      #0a1017;   /* the map canvas itself, a touch lighter than the shell */
+  --panel:       #0e151d;
+  --panel-2:     #131c26;
+  --panel-3:     #1a2532;
+  --line:        #1e2b3a;
+  --line-bright: #2c3e52;
+
+  /* ---- text ---- */
+  --ink:       #dbe6f0;
+  --ink-dim:   #8ea3b8;
+  --ink-faint: #5b6f85;
+
+  /* ---- roles (map + legend + sidebar all read from these) ---- */
+  --honest:     #64809c;      /* dim slate-blue: present but never competing */
+  --attacker:   #ff3b30;      /* false accuser */
+  --victim:     #ffb020;      /* currently accused */
+  --reporter:   #22d3ee;      /* witness / reporter */
+  --misbehaver: #a855f7;      /* genuinely misbehaving (the honest negative class) */
+  --blacklist:  #47566a;      /* punished / removed from play */
+  --rsu:        #3b82f6;
+  --rsu-quar:   #f97316;      /* SC4 quarantined */
+  --rsu-removed:#4b5563;
+  --controller: #22c55e;
+
+  /* ---- verdicts ---- */
+  --ok:      #22c55e;
+  --blocked: #22c55e;   /* the defence held */
+  --danger:  #ff3b30;   /* the attack succeeded */
+  --warn:    #f59e0b;
+  --info:    #38bdf8;
+  --ledger:  #eab308;
+
+  /* ---- defence layers (ribbon + pipeline rows) ---- */
+  --pqc: #60a5fa;
+  --zkp: #a78bfa;
+  --gnn: #22d3ee;
+  --llm: #f472b6;
+  --bc:  #eab308;
+
+  /* ---- roads (drawn once into a static backdrop) ---- */
+  --road-motorway:    #2a3a4d;
+  --road-primary:     #243546;
+  --road-secondary:   #1f2f3f;
+  --road-tertiary:    #1b2937;
+  --road-residential: #182430;
+  --road-casing:      #0c1219;
+  --junction:         #1d2b3a;
+  --building:         #0f1720;
+
+  /* ---- geometry ---- */
+  --radius: 6px;
+  --radius-lg: 10px;
+  --gap: 12px;
+
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+          Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+          "Liberation Mono", monospace;
+
+  /* Sidebar width. The map takes the rest — 75/25 per the design spec. */
+  --sidebar: 25%;
+  --sidebar-min: 340px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--info); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line-bright); border-radius: 5px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }

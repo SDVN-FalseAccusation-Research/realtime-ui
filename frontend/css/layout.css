@@ -1,0 +1,182 @@
+/* Shell layout for both pages.
+ *
+ * Config page: ONE SCREEN, NO SCROLLING — a hard requirement from the spec. Everything
+ * fits in the viewport; the advanced flags live in a modal so the base page never grows.
+ *
+ * Live page: 75% map / 25% sidebar, full viewport height, no bottom bar.
+ */
+
+/* ============================================================ shared chrome ===== */
+.app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.topbar h1 {
+  margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .2px;
+}
+.topbar .sub { color: var(--ink-faint); font-size: 12px; }
+.topbar .spacer { flex: 1; }
+
+.badge {
+  font: 11px/1 var(--mono); padding: 4px 8px; border-radius: 999px;
+  border: 1px solid var(--line-bright); color: var(--ink-dim);
+  white-space: nowrap;
+}
+.badge.ok   { color: var(--ok);     border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.badge.bad  { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.badge.warn { color: var(--warn);   border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+       background: var(--ink-faint); margin-right: 6px; vertical-align: baseline; }
+.dot.up   { background: var(--ok);     box-shadow: 0 0 6px var(--ok); }
+.dot.down { background: var(--danger); }
+
+button {
+  font: inherit; color: var(--ink); background: var(--panel-3);
+  border: 1px solid var(--line-bright); border-radius: var(--radius);
+  padding: 7px 14px; cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--line-bright); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+button.primary {
+  background: color-mix(in srgb, var(--ok) 22%, var(--panel-3));
+  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
+  color: #eafff2; font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ok) 34%, var(--panel-3));
+}
+button.danger {
+  background: color-mix(in srgb, var(--danger) 20%, var(--panel-3));
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+input, select {
+  font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line-bright); border-radius: var(--radius);
+  padding: 6px 8px; width: 100%;
+}
+input:focus, select:focus { outline: 1px solid var(--info); border-color: var(--info); }
+input.bad { border-color: var(--danger); }
+
+/* ================================================================ config page ==== */
+.cfg-body {
+  flex: 1; display: grid; grid-template-columns: 1.25fr 1fr 1fr;
+  gap: var(--gap); padding: var(--gap); min-height: 0;
+}
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); padding: 14px 16px;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.card > h2 {
+  margin: 0 0 12px; font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .8px; color: var(--ink-dim);
+}
+.card-scroll { overflow: auto; min-height: 0; flex: 1; }
+
+/* attack picker — a labelled grid, not a dropdown: the attack IS the headline variable */
+.attack-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.attack-grid button {
+  padding: 8px 6px; font-size: 11px; line-height: 1.3; text-align: left;
+  border-radius: var(--radius); background: var(--panel-2);
+}
+.attack-grid button .plane { display: block; font-size: 9px; color: var(--ink-faint);
+                             text-transform: uppercase; letter-spacing: .5px; }
+.attack-grid button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--attacker) 22%, var(--panel-2));
+  border-color: var(--attacker); color: #fff;
+}
+
+.field { margin-bottom: 10px; }
+.field label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; color: var(--ink-dim); margin-bottom: 4px;
+}
+.field label .val { font: 11px/1 var(--mono); color: var(--ink); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* defence toggles */
+.toggle {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel-2); margin-bottom: 6px; cursor: pointer;
+}
+.toggle input { width: auto; }
+.toggle .name { flex: 1; font-size: 12px; }
+.toggle .why  { font-size: 10px; color: var(--ink-faint); }
+.toggle[data-available="false"] { opacity: .5; cursor: not-allowed; }
+
+/* presets */
+.presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.presets button { font-size: 11px; padding: 5px 10px; }
+.presets button[aria-pressed="true"] {
+  border-color: var(--info); color: var(--info);
+  background: color-mix(in srgb, var(--info) 15%, var(--panel-3));
+}
+
+pre.cmd {
+  font: 11px/1.55 var(--mono); color: var(--ink-dim);
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 10px; margin: 0;
+  white-space: pre-wrap; word-break: break-all; overflow: auto; flex: 1;
+}
+.estimate { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
+.estimate div { font-size: 11px; color: var(--ink-faint); }
+.estimate div b { display: block; font: 15px/1.4 var(--mono); color: var(--ink); }
+
+.warnbox {
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--warn); border-radius: var(--radius);
+  padding: 8px 10px; font-size: 11px; margin-bottom: 10px;
+}
+.errbox {
+  border: 1px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: #ffd7d4; border-radius: var(--radius);
+  padding: 8px 10px; font-size: 12px; margin-bottom: 10px;
+}
+.cfg-actions { display: flex; gap: 10px; align-items: center; }
+
+/* modal for the advanced flags, so the base page never scrolls */
+dialog.modal {
+  width: min(1100px, 92vw); height: min(760px, 88vh);
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line-bright); border-radius: var(--radius-lg);
+  padding: 0; overflow: hidden;
+}
+dialog.modal::backdrop { background: rgba(0, 0, 0, .68); }
+.modal-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid var(--line);
+}
+.modal-head h2 { margin: 0; font-size: 14px; flex: 1; }
+.tabs { display: flex; gap: 4px; padding: 10px 16px 0; flex-wrap: wrap; }
+.tabs button { font-size: 11px; padding: 5px 10px; }
+.tabs button[aria-pressed="true"] { border-color: var(--info); color: var(--info); }
+.modal-body { padding: 12px 16px; overflow: auto; height: calc(100% - 132px); }
+.flag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 16px; }
+.flag-grid .field label { gap: 8px; }
+.flag-grid .help {
+  font-size: 10px; color: var(--ink-faint); margin-top: 3px; line-height: 1.35;
+}
+.modal-foot {
+  display: flex; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line);
+}
+
+/* ================================================================== live page === */
+.live-body { flex: 1; display: flex; min-height: 0; }
+#map-pane { flex: 1; position: relative; background: var(--bg-map); min-width: 0; }
+#stage { display: block; width: 100%; height: 100%; }
+#sidebar {
+  width: var(--sidebar); min-width: var(--sidebar-min); max-width: 520px;
+  background: var(--panel); border-left: 1px solid var(--line);
+  overflow-y: auto; overflow-x: hidden; padding: 12px; flex: 0 0 auto;
+}

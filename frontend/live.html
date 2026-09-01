@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAZD-SDVN · Live simulation</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/sprites.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1>FAZD-SDVN</h1>
+    <span class="sub" id="run-label">—</span>
+    <span class="spacer"></span>
+    <span class="badge" id="conn"><span class="dot"></span>connecting</span>
+    <button id="stop-btn" class="danger">Stop</button>
+    <a href="/" class="badge" style="text-decoration:none">New run</a>
+  </header>
+
+  <main class="live-body">
+
+    <!-- ───────────────────────────── 75% map ───────────────────────────── -->
+    <div id="map-pane">
+      <svg id="stage"></svg>
+
+      <div id="controls">
+        <button id="play">▶</button>
+        <button id="step">⏭</button>
+        <span class="clock" id="clock">t = 0.0 s</span>
+        <select id="rate">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="5">5×</option>
+          <option value="20">20×</option>
+          <option value="max">max</option>
+        </select>
+        <button id="reset-view" title="Reset zoom">⤢</button>
+        <span id="stall"></span>
+      </div>
+
+      <div id="scrub-wrap">
+        <div id="buffered"><i style="width:0%"></i></div>
+        <input type="range" id="scrub" min="0" max="1000" value="0">
+      </div>
+
+      <!-- The flow ribbon: the sequence the map cannot show on its own -->
+      <div id="ribbon"></div>
+
+      <div id="loading">loading assets…</div>
+    </div>
+
+    <!-- ───────────────────────────── 25% sidebar ───────────────────────── -->
+    <aside id="sidebar">
+      <div class="sb-sec"><h3>Run</h3>      <div class="box" id="sb-run-status"></div></div>
+      <div class="sb-sec"><h3>Current event</h3><div class="box" id="sb-cur-event"></div></div>
+      <div class="sb-sec"><h3>Defence pipeline</h3><div class="box" id="sb-pipeline"></div></div>
+      <div class="sb-sec"><h3>Blockchain ledger</h3><div class="box" id="sb-ledger"></div></div>
+      <div class="sb-sec"><h3>History</h3>  <div class="box" id="sb-history"></div></div>
+      <div class="sb-sec"><h3>System</h3>   <div class="box" id="sb-sys"></div></div>
+    </aside>
+
+  </main>
+</div>
+
+<!-- load order matters: render.js defines el(), which world.js and fx.js use -->
+<script src="/static/js/geometry.js"></script>
+<script src="/static/js/render.js"></script>
+<script src="/static/js/assets.js"></script>
+<script src="/static/js/fx.js"></script>
+<script src="/static/js/world.js"></script>
+<script src="/static/js/clock.js"></script>
+<script src="/static/js/stream.js"></script>
+<script src="/static/js/ui.js"></script>
+<script src="/static/js/dispatch.js"></script>
+<script src="/static/js/live.js"></script>
+</body>
+</html>
