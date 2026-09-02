@@ -19,12 +19,14 @@ const Stream = {
   state: 'idle',          // idle | connecting | live | ended | error
   onEvent: () => {},
   onState: () => {},
+  onInsert: () => {},     // (index) -- see _insert; dispatch.js keeps its cursor valid
   _retry: 0,
 
-  connect(runId, { onEvent, onState } = {}) {
+  connect(runId, { onEvent, onState, onInsert } = {}) {
     this.runId = runId;
     if (onEvent) this.onEvent = onEvent;
     if (onState) this.onState = onState;
+    if (onInsert) this.onInsert = onInsert;
     this._open();
   },
 
@@ -48,7 +50,10 @@ const Stream = {
         if (ev.seq <= this.lastSeq) return;         // duplicate after a resume
         this.lastSeq = ev.seq;
       }
-      this._insert(ev);
+      // WHERE it landed matters, not just that it landed: dispatch.js walks this array
+      // with an integer cursor, and a splice below that cursor silently shifts every later
+      // element out from under it.
+      this.onInsert(this._insert(ev), ev);
       Clock.note(ev.t || 0);
       this.onEvent(ev);
       if (ev.type === 'run_closed') this._set('ended');
@@ -65,16 +70,23 @@ const Stream = {
     ws.onerror = () => { /* onclose handles recovery */ };
   },
 
-  /** Keep the list ordered by (t, seq). The server emits in causal order, so this is an
-   *  append in the overwhelming majority of cases. */
+  /** Keep the list ordered by (t, seq), and RETURN THE INDEX it was placed at.
+   *
+   * "The server emits in causal order, so this is an append in the overwhelming majority of
+   * cases" was true of stdout events and wrong once the CSV tailer existed. A verdict is
+   * stamped at its accusation's time + ~1.0-1.3 s, but it arrives AFTER stdout has already
+   * announced later accusations — so during a live run most verdicts splice in BELOW the
+   * playback cursor. dispatch.js needs the index to keep that cursor pointing at the same
+   * event it was pointing at before. */
   _insert(ev) {
     const n = this.events.length;
-    if (!n || this._key(ev) >= this._key(this.events[n - 1])) { this.events.push(ev); return; }
+    if (!n || this._key(ev) >= this._key(this.events[n - 1])) { this.events.push(ev); return n; }
     let lo = 0, hi = n;
     const k = this._key(ev);
     while (lo < hi) { const mid = (lo + hi) >> 1;
                       if (this._key(this.events[mid]) <= k) lo = mid + 1; else hi = mid; }
     this.events.splice(lo, 0, ev);
+    return lo;
   },
   _key(e) { return (e.t || 0) * 1e6 + (e.seq || 0); },
 

@@ -34,6 +34,7 @@ const Dispatch = {
   pipeline: [],
   ledger: [],
   seen: new Set(),        // decision event ids already applied (back-fill guard)
+  seenAcc: new Set(),     // accusation ids already applied -- see the handler
 
   reset() {
     this.cursor = 0;
@@ -43,10 +44,27 @@ const Dispatch = {
     this.pipeline = [];
     this.ledger = [];
     this.seen.clear();
+    this.seenAcc.clear();
     Sidebar.clearHistory();
     Ribbon.reset();
     Sidebar.event(null);
     World.resetRoles(this.roles.attackers, this.roles.misbehavers);
+  },
+
+  /** An event was spliced into Stream.events at `i`. Keep the cursor on the same EVENT.
+   *
+   * The cursor is an array index, so a splice below it shifts every later element right and
+   * the index silently comes to mean a different, already-applied event. Measured before
+   * this existed: 20 late verdicts advanced the cursor 2926 -> 2946, re-applied 3
+   * accusations, and destroyed 20 of 22 in-flight packets — because re-applying an
+   * accusation calls World.clearEventMarks(). On screen that was the whole map blinking
+   * several times a second, and `counts.total` over-reporting (45 -> 48).
+   *
+   * It only ever happened on a LIVE run: a finished run's events arrive already ordered, so
+   * every replay looked perfect, which is exactly why this shipped.
+   */
+  noteInsert(i) {
+    if (i < this.cursor) this.cursor++;
   },
 
   /** Advance to the clock. Called every frame. */
@@ -113,6 +131,18 @@ const Dispatch = {
     },
 
     accusation(ev, animate) {
+      // APPLY EACH ACCUSATION ONCE. This handler is destructive — clearEventMarks() empties
+      // the fx and packets layers and strips every mark — so replaying one mid-flight wipes
+      // the animation of whatever is currently on screen and double-counts it. noteInsert()
+      // is what stops the cursor drifting onto an applied event in the first place; this is
+      // the belt to that pair of braces, because the failure is silent and looks like a
+      // rendering glitch rather than a logic error. reset() clears the set, so rebuild()
+      // and backward scrub still replay everything.
+      if (ev.event !== undefined) {
+        if (this.seenAcc.has(ev.event)) return;
+        this.seenAcc.add(ev.event);
+      }
+
       // close out the previous event's highlighting
       World.clearEventMarks();
       Ribbon.reset();

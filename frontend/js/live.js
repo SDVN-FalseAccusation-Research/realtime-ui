@@ -48,6 +48,10 @@ const App = {
     this.wireControls();
 
     Stream.connect(this.runId, {
+      // Keep the playback cursor pointing at the same event when a late verdict is
+      // spliced in below it. Without this the cursor drifts and already-applied events are
+      // re-applied, which tears down and rebuilds the map several times a second.
+      onInsert: (i) => Dispatch.noteInsert(i),
       onEvent: (ev) => {
         // A verdict can arrive behind the cursor (the CSV is only read at process exit,
         // and the first accusations play before that). Apply those immediately instead of
