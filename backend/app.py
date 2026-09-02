@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnec
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+import campaign
 import components
 import config
 import health
@@ -172,6 +173,16 @@ def get_metrics(run_id: str):
                         for k, m in res.items()}}
 
 
+@app.get("/api/campaign")
+def get_campaign():
+    """Defended vs undefended across the whole 4x4 grid, paired by run id.
+
+    `sweep-<attack>_p<pct>` is compared with `base-<attack>_p<pct>` and only when both
+    exist, so every number on the page can be opened and checked from History.
+    """
+    return campaign.build()
+
+
 @app.get("/api/runs/{run_id}/components")
 def get_components(run_id: str):
     """Which defence components this run actually used, with a headline stat each."""
@@ -319,6 +330,14 @@ def stats_page():
     p = os.path.join(config.FRONTEND, "stats.html")
     if not os.path.exists(p):
         raise HTTPException(404, "statistics page not built yet")
+    return FileResponse(p)
+
+
+@app.get("/campaign")
+def campaign_page():
+    p = os.path.join(config.FRONTEND, "campaign.html")
+    if not os.path.exists(p):
+        raise HTTPException(404, "campaign page not built yet")
     return FileResponse(p)
 
 

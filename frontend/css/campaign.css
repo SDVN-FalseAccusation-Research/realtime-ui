@@ -1,0 +1,119 @@
+/* Defended-vs-baseline campaign page.
+ *
+ * TWO SERIES ONLY, and both are conditions rather than states, so they take slots 1 and 2
+ * of the categorical palette already in tokens.css — NOT the status colours, which are
+ * reserved. Validated against the --panel surface before use (all five checks pass; worst
+ * adjacent CVD ΔE 26.8 protan, normal-vision ΔE 31.8, contrast ≥3:1). Do not re-pick these
+ * by eye: an earlier hand-picked pair on this project failed at ΔE 0.3 under deuteranopia.
+ */
+:root {
+  --arm-defended:   var(--pqc);   /* #3987e5 blue   */
+  --arm-undefended: var(--zkp);   /* #d95926 orange */
+}
+
+.camp-body { padding: 16px 20px 40px; overflow-y: auto; }
+
+.camp-block { margin-top: 26px; }
+.camp-block h2 {
+  font: 600 13px/1.4 var(--font); letter-spacing: .4px; text-transform: uppercase;
+  color: var(--ink-dim); margin: 0 0 12px; display: flex; align-items: baseline; gap: 10px;
+}
+.camp-block h2 small {
+  font: 11px var(--font); letter-spacing: 0; text-transform: none; color: var(--ink-faint);
+}
+
+/* ------------------------------------------------------------------- hero row --- */
+.camp-hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.hero-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 14px 16px;
+}
+.hero-card .lbl {
+  font: 600 10px/1.4 var(--font); letter-spacing: .7px; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.hero-card .pair { display: flex; align-items: baseline; gap: 9px; margin-top: 7px; }
+.hero-card .from { font: 15px var(--mono); color: var(--ink-dim); }
+.hero-card .arrow { color: var(--ink-faint); font-size: 13px; }
+.hero-card .to { font: 700 27px/1 var(--mono); }
+.hero-card .to.good { color: var(--ok); }
+.hero-card .to.bad  { color: var(--danger); }
+.hero-card .sub { font: 11px/1.5 var(--font); color: var(--ink-faint); margin-top: 7px; }
+
+/* ------------------------------------------------------- small-multiple charts --- */
+.camp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.chart-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 12px 12px 8px;
+}
+.chart-card .title { font: 600 12px var(--font); color: var(--ink); margin-bottom: 2px; }
+.chart-card svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+/* Recessive grid and axes; the data is the only thing that should read at a glance. */
+.ax line   { stroke: var(--line); stroke-width: 1; }
+.grid line { stroke: var(--line); stroke-width: 1; opacity: .45; }
+.ax text   { font: 9.5px var(--mono); fill: var(--ink-faint); }
+
+.series { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.series.defended   { stroke: var(--arm-defended); }
+.series.undefended { stroke: var(--arm-undefended); }
+/* 2px surface ring so overlapping markers stay separable where the lines cross. */
+.dot { r: 4.5; stroke: var(--panel); stroke-width: 2; }
+.dot.defended   { fill: var(--arm-defended); }
+.dot.undefended { fill: var(--arm-undefended); }
+/* Hit target larger than the mark, per the interaction spec. */
+.hit { fill: transparent; cursor: crosshair; }
+
+.chart-legend { display: flex; gap: 12px; margin-top: 6px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 5px;
+                     font: 10px var(--font); color: var(--ink-dim); }
+.chart-legend i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+
+#tip {
+  position: fixed; pointer-events: none; z-index: 40; opacity: 0;
+  background: var(--panel-3); border: 1px solid var(--line-bright);
+  border-radius: var(--radius); padding: 7px 9px; font: 11px/1.5 var(--font);
+  color: var(--ink); box-shadow: 0 6px 20px rgba(0,0,0,.5); transition: opacity .1s;
+}
+#tip b { font: 11px var(--mono); }
+
+/* -------------------------------------------------------- layer attribution --- */
+.layer-row { display: grid; grid-template-columns: 130px 1fr 74px; gap: 10px;
+             align-items: center; margin-bottom: 6px; }
+.layer-row .nm { font: 11px var(--mono); color: var(--ink-dim); text-align: right; }
+.layer-row .track { background: var(--panel-2); border-radius: 4px; height: 16px; overflow: hidden; }
+.layer-row .fill { display: block; height: 100%; background: var(--arm-defended); border-radius: 4px; }
+.layer-row .val { font: 11px var(--mono); color: var(--ink); }
+/* NOT a defence layer: the event drew no witness reports at all. Neutral + hatched so it
+   cannot be mistaken for one of the five that actually did work. */
+.layer-row.degenerate .fill {
+  background: repeating-linear-gradient(45deg, var(--degenerate) 0 4px, transparent 4px 8px);
+  border: 1px solid var(--degenerate); box-sizing: border-box;
+}
+.layer-row.degenerate .nm { color: var(--ink-faint); font-style: italic; }
+
+/* ------------------------------------------------------------------- table --- */
+.table-wrap { overflow-x: auto; }
+.camp-table { width: 100%; border-collapse: collapse; font: 11.5px var(--font); }
+.camp-table th {
+  text-align: right; padding: 7px 9px; color: var(--ink-faint);
+  font: 600 10px var(--font); letter-spacing: .6px; text-transform: uppercase;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.camp-table th:first-child, .camp-table td:first-child { text-align: left; }
+.camp-table td { text-align: right; padding: 6px 9px; border-bottom: 1px solid var(--line);
+                 font-family: var(--mono); color: var(--ink-dim); white-space: nowrap; }
+.camp-table td.k { color: var(--ink); font-family: var(--font); }
+.camp-table td.def { color: var(--arm-defended); }
+.camp-table td.und { color: var(--arm-undefended); }
+.camp-table tr.unpaired td { opacity: .5; }
+
+.camp-notes { margin: 0; padding-left: 18px; }
+.camp-notes li { font: 11.5px/1.7 var(--font); color: var(--ink-dim); margin-bottom: 6px; }
+
+#warnings:not(:empty) {
+  padding: 10px 13px; margin-bottom: 16px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 12%, transparent);
+  font: 11.5px/1.6 var(--font); color: var(--ink);
+}

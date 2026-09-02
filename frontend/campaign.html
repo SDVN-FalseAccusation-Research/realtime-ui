@@ -1,0 +1,54 @@
+<meta charset="utf-8">
+<title>FAZD-SDVN — campaign</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/runs.css">
+<link rel="stylesheet" href="/static/css/stats.css">
+<link rel="stylesheet" href="/static/css/campaign.css">
+
+<div class="page">
+  <header class="topbar">
+    <h1>FAZD-SDVN</h1>
+    <span class="sub">Defence campaign — 4 attacks × 4 penetrations, defended vs baseline</span>
+    <span class="spacer"></span>
+    <span class="badge" id="paired">—</span>
+    <a href="/runs" class="badge" style="text-decoration:none">History</a>
+    <a href="/" class="badge" style="text-decoration:none">New run</a>
+  </header>
+
+  <main class="camp-body">
+    <!-- Filled by campaignpage.js. Warnings first: a cell whose two arms ran different
+         simulated durations is not comparable and must say so before any chart is read. -->
+    <div id="warnings"></div>
+
+    <section class="camp-hero" id="hero"></section>
+
+    <section class="camp-block">
+      <h2>Attack success rate <small>lower is better · by attacker penetration</small></h2>
+      <div class="camp-grid" id="asr-charts"></div>
+    </section>
+
+    <section class="camp-block">
+      <h2>False-positive rate <small>genuine reports wrongly blocked · lower is better</small></h2>
+      <div class="camp-grid" id="fpr-charts"></div>
+    </section>
+
+    <section class="camp-block">
+      <h2>Which layer stopped the attack <small>defended arm, blocked attacks only</small></h2>
+      <div id="layers"></div>
+    </section>
+
+    <section class="camp-block">
+      <h2>Every cell <small>open either half from History to check it</small></h2>
+      <div class="table-wrap"><table class="camp-table" id="grid"></table></div>
+    </section>
+
+    <section class="camp-block">
+      <h2>Reading this</h2>
+      <ul id="notes" class="camp-notes"></ul>
+    </section>
+  </main>
+</div>
+
+<script src="/static/js/campaignpage.js"></script>
