@@ -114,6 +114,10 @@ const App = {
     };
     $('reset-view').onclick = () => World.resetView();
     $('follow').onchange = (e) => { Dispatch.follow = e.target.checked; };
+    $('show-buildings').onchange = (e) => {
+      const l = document.getElementById('layer-buildings');
+      if (l) l.style.display = e.target.checked ? '' : 'none';
+    };
 
     const scrub = $('scrub');
     scrub.oninput = () => {

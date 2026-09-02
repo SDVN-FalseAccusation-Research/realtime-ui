@@ -87,6 +87,11 @@
         <label class="follow" title="Let the camera jump to each accusation">
           <input type="checkbox" id="follow"> follow
         </label>
+        <!-- UI_DESIGN 11.4 wanted buildings behind a toggle in case they cost frame rate.
+             They do not on this machine, so it defaults ON — but the escape hatch exists. -->
+        <label class="follow" title="Hide the building layer if the frame rate suffers">
+          <input type="checkbox" id="show-buildings" checked> buildings
+        </label>
         <span id="stall"></span>
       </div>
 
