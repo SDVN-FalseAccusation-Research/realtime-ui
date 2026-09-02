@@ -75,10 +75,17 @@ function estimate() {
   //
   //   undefended  365 s of simulated time took 94.4 s wall at 200 vehicles -> /3.9
   //   defended    every accusation makes a bridge round trip through Fabric, so cost tracks
-  //               the ACCUSATION COUNT as much as the clock. Least-squares fit over four
-  //               UI-LAUNCHED runs (smoke p2, demo p9, p60, sybil p80):
-  //                   wall = 162.1 + 0.0951*simTime + 2.700*opportunities
-  //               worst error 5.6%.
+  //               the ACCUSATION COUNT as much as the clock. Least-squares fit over five
+  //               UI-LAUNCHED runs (smoke p2, demo p9, single p60, sybil p80, colluding p80):
+  //                   wall = 126.4 + 0.1851*simTime + 2.219*opportunities
+  //
+  // TREAT THIS AS +/-15%, NOT the 7.6% the in-sample fit reports. A four-point version of
+  // this model predicted a held-out colluding-p80 run at 676 s against an actual 596 s --
+  // 13.4% out. The reason is visible in the data: sybil p80 and colluding p80 have
+  // IDENTICAL simTime (865) and opportunities (160) and still differ by 97 s, 16.3%, purely
+  // by attack type -- sybil spawns 160 identity events and 150 stake burns, colluding 480
+  // colluder events and 25 burns. No model using only these two inputs can do better than
+  // that spread, so the honest reading is a planning band, not a figure.
   //
   // FITTED ON UI RUNS, NOT SWEEP CELLS, and that distinction is the whole accuracy story.
   // An earlier fit used run_sweep.sh's cells, which pass --misbehaveModel=1
@@ -90,7 +97,7 @@ function estimate() {
   // All four have blockchain+GNN+LLM on; blockchain alone is faster, so this over-estimates
   // that rarer configuration rather than under-estimating it.
   const defended = !!S.cfg.blockchain;
-  const wall = (defended ? 162.1 + 0.0951 * simTime + 2.700 * opportunities
+  const wall = (defended ? 126.4 + 0.1851 * simTime + 2.219 * opportunities
                          : simTime / 3.9) * (n / 200);
   return { attackers, opportunities, simTime, wall, defended,
            accusations: opportunities + warmupAcc, spacing };
