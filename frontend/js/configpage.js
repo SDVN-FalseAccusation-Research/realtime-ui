@@ -75,14 +75,22 @@ function estimate() {
   //
   //   undefended  365 s of simulated time took 94.4 s wall at 200 vehicles -> /3.9
   //   defended    every accusation makes a bridge round trip through Fabric, so cost tracks
-  //               the ACCUSATION COUNT as much as the clock. Least-squares fit over five
-  //               measured runs on this machine (smoke p2, demo p9, sweep p20/p60/p80):
-  //                   wall = 114.8 + 0.2172*simTime + 3.026*opportunities
-  //               worst error 5.9%, against 2-3x for the flat divisor.
-  // Fitted on runs with blockchain+GNN+LLM all on; blockchain alone is somewhat faster, so
-  // this over-estimates that (rarer) configuration rather than under-estimating it.
+  //               the ACCUSATION COUNT as much as the clock. Least-squares fit over four
+  //               UI-LAUNCHED runs (smoke p2, demo p9, p60, sybil p80):
+  //                   wall = 162.1 + 0.0951*simTime + 2.700*opportunities
+  //               worst error 5.6%.
+  //
+  // FITTED ON UI RUNS, NOT SWEEP CELLS, and that distinction is the whole accuracy story.
+  // An earlier fit used run_sweep.sh's cells, which pass --misbehaveModel=1
+  // --misbehavePercent=10 and so carry genuine-report traffic the UI never generates: the
+  // p60 sweep cell logged 190 events where the equivalent UI run logged 107. That model
+  // over-predicted real UI runs by 22.4% (p60) and 13.5% (p80). Refitting on the population
+  // actually being predicted brought both under 5%.
+  //
+  // All four have blockchain+GNN+LLM on; blockchain alone is faster, so this over-estimates
+  // that rarer configuration rather than under-estimating it.
   const defended = !!S.cfg.blockchain;
-  const wall = (defended ? 114.8 + 0.2172 * simTime + 3.026 * opportunities
+  const wall = (defended ? 162.1 + 0.0951 * simTime + 2.700 * opportunities
                          : simTime / 3.9) * (n / 200);
   return { attackers, opportunities, simTime, wall, defended,
            accusations: opportunities + warmupAcc, spacing };
