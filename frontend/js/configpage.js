@@ -227,6 +227,67 @@ function renderTrace() {
   $('trace-synthetic').setAttribute('aria-pressed', S.cfg.trace === 'synthetic');
 }
 
+/* Run tools/demo_stack.sh reset from the page. ~80 s, so it is started and then polled;
+   a held-open request that long invites a browser or proxy timeout and leaves you unsure
+   whether it worked. The server refuses while a simulation is running, because the reset
+   stops the bridge and would kill it. */
+/** Re-read health and re-render the parts that depend on it. */
+async function refreshHealth() {
+  try {
+    S.health = await (await fetch('/api/health')).json();
+    renderHealth();
+    renderDefence();
+  } catch (e) { /* transient */ }
+}
+
+async function runStackReset() {
+  const el = $('syscheck'), btn = $('reset-btn');
+  el.hidden = false;
+  el.className = '';
+  btn.disabled = true;
+  const show = (head, body = '') =>
+    el.innerHTML = `<div class="sc-head">${head}</div>${body}`;
+  show('resetting the ledger… (~80 s: Fabric down → up → deploy, then the bridge)');
+
+  try {
+    const r = await fetch('/api/stack/reset', { method: 'POST' });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      el.className = 'nogo';
+      show(`✕ ${d.detail || r.status + ' ' + r.statusText}`);
+      btn.disabled = false;
+      return;
+    }
+    // Poll until it finishes. The log tail comes back with the status, so a failure is
+    // diagnosable without leaving the page.
+    for (;;) {
+      await new Promise(r2 => setTimeout(r2, 2000));
+      const st = await (await fetch('/api/stack/reset')).json();
+      if (st.state === 'running') { show('resetting the ledger… still going'); continue; }
+      if (st.state === 'ok') {
+        el.className = 'go';
+        show('✓ ledger reset — running the system check…');
+        // The defence toggles are gated on /api/health, and the page's copy is now 80 s
+        // stale: without this they stay greyed out until the next poll, which reads as the
+        // reset not having worked.
+        await refreshHealth();
+        await runSystemCheck();               // prove it, do not just claim it
+      } else {
+        el.className = 'nogo';
+        show(`✕ reset failed (exit ${st.exit_code})`,
+             `<pre class="sc-log">${(st.log || '').replace(/[<&]/g, c =>
+                ({'<': '&lt;', '&': '&amp;'}[c]))}</pre>`);
+      }
+      break;
+    }
+  } catch (e) {
+    el.className = 'nogo';
+    show(`✕ ${e}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 /* One go / no-go gate before the audience is in the room (UI_DESIGN 11.3). Read-only, and
    deliberately does NOT re-probe the sidecars — the bridge's own startup log is the evidence
    that it reached all three, and an idle probe is what wedged the zk-STARK sidecar once. */
@@ -438,6 +499,7 @@ async function boot() {
   $('trace-synthetic').onclick = () => { S.cfg.trace = 'synthetic'; renderTrace(); refresh(); };
 
   $('check-btn').onclick = runSystemCheck;
+  $('reset-btn').onclick = runStackReset;
   $('more-btn').onclick = () => $('more-modal').showModal();
   $('modal-close').onclick = () => $('more-modal').close();
   $('reset-tab').onclick = () => {
@@ -446,10 +508,7 @@ async function boot() {
   };
   $('run-btn').onclick = run;
 
-  setInterval(async () => {
-    try { S.health = await (await fetch('/api/health')).json();
-          renderHealth(); renderDefence(); } catch (e) { /* transient */ }
-  }, 10000);
+  setInterval(refreshHealth, 10000);
 }
 
 boot();

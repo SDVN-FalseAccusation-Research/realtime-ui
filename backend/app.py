@@ -11,7 +11,8 @@ loud failure rather than a quiet exposure.
 import asyncio
 import os
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (FastAPI, HTTPException, Query, Request, WebSocket,
+                     WebSocketDisconnect)
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -20,6 +21,7 @@ import components
 import config
 import health
 import run_store
+import stack
 from flags import ATTACK_TYPES, REGISTRY
 from hub import Client, Hub
 from runner import RunManager
@@ -171,6 +173,38 @@ def get_metrics(run_id: str):
             "metrics": {k: {"value": m.value, "num": m.num, "den": m.den,
                             "na_reason": m.na_reason}
                         for k, m in res.items()}}
+
+
+def _same_origin(request):
+    """Reject a cross-origin state change.
+
+    Loopback is not the same as unreachable from a browser: any page the user has open can
+    POST to 127.0.0.1. Reads are harmless; anything that restarts Fabric is not.
+    """
+    o = request.headers.get("origin")
+    return not o or o.startswith("http://127.0.0.1") or o.startswith("http://localhost")
+
+
+@app.post("/api/stack/reset")
+def post_stack_reset(request: Request):
+    """Run `tools/demo_stack.sh reset` — a fresh ledger and a bridge reconnected to it.
+
+    Asynchronous: ~80 s measured, so this starts it and returns. Poll GET for progress.
+    """
+    if not _same_origin(request):
+        raise HTTPException(403, "cross-origin request refused")
+    if MANAGER.busy():
+        raise HTTPException(409, f"{MANAGER.current.run_id} is running — a reset stops the "
+                                 f"bridge and would kill it. Stop the run first.")
+    refused = stack.start()
+    if refused:
+        raise HTTPException(409, refused)
+    return stack.status()
+
+
+@app.get("/api/stack/reset")
+def get_stack_reset():
+    return stack.status()
 
 
 @app.get("/api/systemcheck")

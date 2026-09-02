@@ -289,3 +289,12 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .68); }
   font: 11px var(--mono); background: var(--panel-3); border: 1px solid var(--line);
   border-radius: 4px; padding: 1px 5px; color: var(--ink);
 }
+
+/* Log tail shown when a UI-triggered stack reset fails — the point is that you can read the
+   failure without leaving the page. */
+#syscheck .sc-log {
+  margin: 0; padding: 9px 11px; max-height: 190px; overflow: auto;
+  font: 10.5px/1.5 var(--mono); color: var(--ink-dim);
+  background: var(--panel-3); border-top: 1px solid var(--line); white-space: pre-wrap;
+}
+#reset-btn[disabled] { opacity: .5; cursor: progress; }
