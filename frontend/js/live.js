@@ -82,6 +82,7 @@ const App = {
 
   frame(ts) {
     const dt = Clock.advance(ts);
+    World.tickCamera(ts);        // no-op unless a follow move is in flight
     World.update(Clock.t);
     Dispatch.pump();
     Fx.tick(dt);
