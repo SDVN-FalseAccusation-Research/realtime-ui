@@ -70,9 +70,21 @@ function estimate() {
   const simTime = warmup + effWindow + 5;
   const warmupAcc = +S.adv.warmupAccusations || 3;
 
-  // measured on this machine: 365 s of simulated time took 94.4 s wall at 200 vehicles
-  const wall = simTime / 3.9 * (n / 200);
-  return { attackers, opportunities, simTime, wall,
+  // WALL CLOCK. A defended run is not the same machine as an undefended one, and using one
+  // number for both was wrong by 2-3x.
+  //
+  //   undefended  365 s of simulated time took 94.4 s wall at 200 vehicles -> /3.9
+  //   defended    every accusation makes a bridge round trip through Fabric, so cost tracks
+  //               the ACCUSATION COUNT as much as the clock. Least-squares fit over five
+  //               measured runs on this machine (smoke p2, demo p9, sweep p20/p60/p80):
+  //                   wall = 114.8 + 0.2172*simTime + 3.026*opportunities
+  //               worst error 5.9%, against 2-3x for the flat divisor.
+  // Fitted on runs with blockchain+GNN+LLM all on; blockchain alone is somewhat faster, so
+  // this over-estimates that (rarer) configuration rather than under-estimating it.
+  const defended = !!S.cfg.blockchain;
+  const wall = (defended ? 114.8 + 0.2172 * simTime + 3.026 * opportunities
+                         : simTime / 3.9) * (n / 200);
+  return { attackers, opportunities, simTime, wall, defended,
            accusations: opportunities + warmupAcc, spacing };
 }
 
