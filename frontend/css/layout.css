@@ -262,3 +262,30 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .68); }
   border-radius: 6px; padding: 1px 3px; white-space: nowrap;
 }
 #legend .lg-grid i { color: var(--ink-faint); font-size: 9px; font-style: italic; }
+
+/* System check panel (config page). Green/no-go, itemised — the point is that a NO-GO says
+   which item, not just that something is wrong. */
+#syscheck {
+  margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel-2); overflow: hidden;
+}
+#syscheck .sc-head {
+  padding: 8px 11px; font: 600 12px var(--font); display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+#syscheck.go    .sc-head { background: color-mix(in srgb, var(--ok) 18%, transparent);     color: var(--ok); }
+#syscheck.nogo  .sc-head { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+#syscheck .sc-item {
+  display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: start;
+  padding: 4px 11px; font: 11px/1.5 var(--font); color: var(--ink-dim);
+}
+#syscheck .sc-item .mk { font: 11px var(--mono); }
+#syscheck .sc-item.bad .mk { color: var(--danger); }
+#syscheck .sc-item.ok  .mk { color: var(--ok); }
+#syscheck .sc-item .nm { color: var(--ink); }
+#syscheck .sc-item .dt { color: var(--ink-faint); display: block; }
+#syscheck .sc-foot { padding: 7px 11px; border-top: 1px solid var(--line); }
+#syscheck .sc-foot code {
+  font: 11px var(--mono); background: var(--panel-3); border: 1px solid var(--line);
+  border-radius: 4px; padding: 1px 5px; color: var(--ink);
+}

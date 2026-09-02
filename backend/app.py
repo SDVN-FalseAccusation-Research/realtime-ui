@@ -173,6 +173,12 @@ def get_metrics(run_id: str):
                         for k, m in res.items()}}
 
 
+@app.get("/api/systemcheck")
+def get_systemcheck():
+    """One go / no-go answer before the audience is in the room. Read-only."""
+    return health.system_check()
+
+
 @app.get("/api/campaign")
 def get_campaign():
     """Defended vs undefended across the whole 4x4 grid, paired by run id.

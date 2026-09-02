@@ -14,6 +14,7 @@ import os
 import shutil
 import socket
 import subprocess
+import time
 
 import config
 
@@ -148,6 +149,61 @@ def _gnn_model_check(digest):
             f"the sidecar is NOT serving {config.GNN_MODEL}. Restart it with "
             f"GNN_ARTIFACTS=artifacts/{config.GNN_MODEL}")
     return out
+
+
+def system_check():
+    """The single go / no-go gate UI_DESIGN 11.3 asked for.
+
+    Everything here is READ-ONLY and none of it touches the serial sidecars: the bridge's own
+    startup log is the evidence, because it is the one component that has already proved it
+    can reach all three sidecars AND the channel. Re-probing them here would be both
+    redundant and harmful — see probe() on the 82 CLOSE-WAIT sockets.
+    """
+    h = probe()
+    items, log = [], ""
+    try:
+        with open(os.path.join(config.STACK_LOGS, "bridge.log"), errors="replace") as fh:
+            log = fh.read()
+    except OSError:
+        pass
+
+    def add(name, ok, detail, fatal=True):
+        items.append({"name": name, "ok": bool(ok), "detail": detail, "fatal": fatal})
+
+    add("Simulator binary", h["binary"]["up"], h["binary"]["path"])
+    add("Mobility trace", h["trace"]["up"], h["trace"]["path"])
+    for k, label in (("zkp", "zk-STARK :7070"), ("gnn", "GNN :7071"),
+                     ("llm", "LLM :7072"), ("bridge", "Bridge :7545")):
+        add(label, h[k]["up"], h[k].get("note") or ("listening" if h[k]["up"] else "down"))
+
+    g = h.get("gnn", {})
+    add(f"GNN is {config.GNN_MODEL}", g.get("model_ok") is not False,
+        g.get("model_note") or ("verified by model_hash" if g.get("model_ok")
+                                else "not read while the bridge holds it — checked at startup"))
+
+    add("Docker", h["docker"]["up"], h["docker"].get("note") or "daemon reachable")
+
+    # The bridge only prints these AFTER a successful connection, so their presence is
+    # evidence rather than assertion.
+    for probe_name, needle in (("Bridge → zk-STARK", "ZK backend:"),
+                               ("Bridge → GNN", "GNN backend:"),
+                               ("Bridge → LLM", "LLM backend:")):
+        add(probe_name, needle in log, "confirmed in bridge.log" if needle in log
+            else "no such line in bridge.log — the bridge did not reach it")
+    ch = "channel=sdvnrealnet chaincode=sdvn-defence" in log
+    add("Fabric channel + chaincode", ch,
+        "bridge bound to channel=sdvnrealnet chaincode=sdvn-defence" if ch
+        else "the bridge never reported a channel — chaincode may not be committed")
+
+    led = h["ledger"]
+    add("Ledger is fresh", led["state"] == "fresh",
+        led.get("note") or f"reset {led.get('reset_utc')}",
+        fatal=led["state"] == "used")
+
+    blocking = [i for i in items if not i["ok"] and i["fatal"]]
+    return {"go": not blocking, "items": items,
+            "blocking": [i["name"] for i in blocking],
+            "checked_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
 
 def _docker_check():

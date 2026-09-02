@@ -227,6 +227,40 @@ function renderTrace() {
   $('trace-synthetic').setAttribute('aria-pressed', S.cfg.trace === 'synthetic');
 }
 
+/* One go / no-go gate before the audience is in the room (UI_DESIGN 11.3). Read-only, and
+   deliberately does NOT re-probe the sidecars — the bridge's own startup log is the evidence
+   that it reached all three, and an idle probe is what wedged the zk-STARK sidecar once. */
+async function runSystemCheck() {
+  const el = $('syscheck');
+  el.hidden = false;
+  el.className = '';
+  el.innerHTML = '<div class="sc-head">checking…</div>';
+  let d;
+  try {
+    const r = await fetch('/api/systemcheck');
+    // A 404 here means the server predates this endpoint; its body is FastAPI's
+    // {"detail": ...}, which has no `items`. Say that plainly rather than throwing on
+    // a missing field further down.
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText} — restart the server`);
+    d = await r.json();
+    if (!Array.isArray(d.items)) throw new Error('unexpected response shape');
+  } catch (e) {
+    el.className = 'nogo';
+    el.innerHTML = `<div class="sc-head">✕ could not run the check — ${e}</div>`;
+    return;
+  }
+  el.className = d.go ? 'go' : 'nogo';
+  el.innerHTML =
+    `<div class="sc-head">${d.go ? '✓ GO — every check passed'
+                                 : '✕ NO-GO — ' + d.blocking.join(', ')}</div>` +
+    d.items.map(i => `<div class="sc-item ${i.ok ? 'ok' : 'bad'}">
+        <span class="mk">${i.ok ? '✓' : '✕'}</span>
+        <span><span class="nm">${i.name}</span><span class="dt">${i.detail}</span></span>
+      </div>`).join('') +
+    (d.go ? '' : `<div class="sc-foot"><code>realtime-ui/tools/demo_stack.sh ${
+        d.blocking.includes('Ledger is fresh') ? 'reset' : 'up'}</code></div>`);
+}
+
 function renderHealth() {
   const h = S.health || {};
   const can = h.can || {};
@@ -403,6 +437,7 @@ async function boot() {
   $('trace-manhattan').onclick = () => { S.cfg.trace = 'manhattan'; renderTrace(); refresh(); };
   $('trace-synthetic').onclick = () => { S.cfg.trace = 'synthetic'; renderTrace(); refresh(); };
 
+  $('check-btn').onclick = runSystemCheck;
   $('more-btn').onclick = () => $('more-modal').showModal();
   $('modal-close').onclick = () => $('more-modal').close();
   $('reset-tab').onclick = () => {
