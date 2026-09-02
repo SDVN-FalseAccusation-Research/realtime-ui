@@ -57,7 +57,14 @@ start_sidecar() {  # $1 = name, $2 = port, $3 = cwd, then the command
   local name="$1" port="$2" cwd="$3"; shift 3
   if port_up "$port"; then say "  $name already up on :$port"; return 0; fi
   [ -d "$cwd" ] || { say "  $name SKIPPED: no such directory $cwd"; return 1; }
-  ( cd "$cwd" && nohup "$@" >"$LOGS/$name.log" 2>&1 & echo $! >"$LOGS/$name.pid" )
+  # setsid, not just nohup. `nohup &` only ignores SIGHUP; the child stays in the launching
+  # shell's process GROUP, so when that session ends the whole group can be torn down with
+  # it. Measured: both sidecars started this way were gone hours later with clean logs
+  # ending in "listening on ..." and no crash trace, while a zkp sidecar started by hand in
+  # a normal login shell survived 23 h. On demo day that means starting the stack, closing
+  # the terminal, and silently losing the GNN and the LLM before anyone is watching.
+  ( cd "$cwd" && setsid nohup "$@" >"$LOGS/$name.log" 2>&1 < /dev/null &
+    echo $! >"$LOGS/$name.pid" )
   if wait_port "$port" 60; then
     say "  $name up on :$port"
   else
@@ -115,9 +122,9 @@ start_bridge() {
     fuser -k 7545/tcp 2>/dev/null || true
     for i in $(seq 1 10); do port_up 7545 || break; sleep 1; done
 
-    nohup "$BRIDGE_BIN" --listen 127.0.0.1:7545 --secure --channel sdvnrealnet \
+    setsid nohup "$BRIDGE_BIN" --listen 127.0.0.1:7545 --secure --channel sdvnrealnet \
       --node-map "$GEN/node-map.json" --crypto "$GEN/organizations" \
-      >"$LOGS/bridge.log" 2>&1 &
+      >"$LOGS/bridge.log" 2>&1 < /dev/null &
     pid=$!
     echo "$pid" >"$LOGS/bridge.pid"
     wait_port 7545 40 || true
