@@ -47,6 +47,7 @@ def _line_json(port, request, host="127.0.0.1"):
 
 # Remembered for the life of the server process. See _gnn_identity for why.
 _GNN_CACHE = {}
+_PORT_CACHE = {}
 
 
 def ledger():
@@ -182,8 +183,29 @@ def _docker_check():
 def probe():
     out = {}
 
-    for name, port in config.PORTS.items():
-        out[name] = {"port": port, "up": _port_open(port)}
+    # Probe the bridge first: whether it is attached decides how the sidecars may be probed.
+    out["bridge"] = {"port": config.PORTS["bridge"],
+                     "up": _port_open(config.PORTS["bridge"])}
+
+    # A BARE TCP CONNECT TO THESE SIDECARS IS NOT FREE. They serve one connection at a time,
+    # and _port_open opens a connection, sends nothing, and closes. Each one the sidecar
+    # accepts but never drains becomes a CLOSE-WAIT socket. Measured: after ~24 h of this
+    # page polling, the zk-STARK sidecar held 82 CLOSE-WAIT sockets and was permanently
+    # wedged -- still accepting, so every health check reported it green, while the bridge
+    # logged "zkp-stark sidecar unreachable: i/o timeout" and every defended run died with
+    # "blockchain InitConfig failed". The monitoring caused the outage it was watching for.
+    #
+    # So: probe a sidecar only when the bridge is NOT holding it, and remember the answer.
+    for name in ("zkp", "gnn", "llm"):
+        port = config.PORTS[name]
+        if out["bridge"]["up"] and name in _PORT_CACHE:
+            out[name] = {"port": port, "up": _PORT_CACHE[name], "probe": "cached",
+                         "note": "not probed: the bridge holds this sidecar, and an idle "
+                                 "connect would be left half-open"}
+        else:
+            up = _port_open(port)
+            _PORT_CACHE[name] = up
+            out[name] = {"port": port, "up": up}
 
     # The GNN must be serving the TRAINED model, not the scaffold — a scaffold answers
     # ping happily and then scores nothing. run_sweep.sh checks this too.
