@@ -74,6 +74,10 @@
 .rsu.serving .rsu-label { fill: var(--ink); }
 .rsu.windowing .rsu-win { opacity: 1; }
 .rsu.has-buf .rsu-buf { opacity: 1; }
+/* Once the verdict lands the pill switches from the inferred arrival count to the CSV's
+   authoritative true/false split, and says so by going solid. */
+.rsu.buf-final .rsu-buf rect { fill: var(--panel-2); stroke: var(--reporter); }
+.rsu.buf-final .rsu-buf text { fill: var(--reporter); }
 
 .rsu[data-state="quarantined"] .mast,
 .rsu[data-state="quarantined"] .base { fill: var(--rsu-quar); }
@@ -98,6 +102,11 @@
 .pkt-accuse  .pkt-dot { fill: var(--attacker); }
 .pkt-observe .pkt-dot { fill: var(--reporter); r: 3.5; }
 .pkt-bundle  .pkt-dot { fill: var(--ledger); r: 6; }
+/* The REPORTING leg: a witness filing what it saw to the serving RSU. Brighter and larger
+   than the observation packet, because this is the evidence the defence actually acts on. */
+.pkt-report  .pkt-dot { fill: var(--reporter); r: 4.5;
+                        filter: drop-shadow(0 0 5px var(--reporter)); }
+.pkt-report  .pkt-trail { stroke: var(--reporter); opacity: .3; }
 
 .fx-ring { fill: none; stroke-width: 3; }
 .fx-ring.fx-victim  { stroke: var(--victim); }
