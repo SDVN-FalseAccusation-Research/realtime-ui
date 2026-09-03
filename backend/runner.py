@@ -198,7 +198,18 @@ class Run:
             "exit_code": self.exit_code, "state": self.state,
             "timing_reconciled": fixed, "timing_max_shift_s": shift,
         }))
-        self.store.close(self.exit_code, fixed, shift, summary=self.parser.summary,
+        # THE SIMULATOR'S OWN successRate LINE IS WRONG WHEN GENUINE ACCUSATIONS ARE ON.
+        # apps.cc:1372 counts every non-warmup accusation as an attack attempt, genuine ones
+        # included, so a correctly-accepted genuine report inflates ASR. Recompute the three
+        # attack counts from _decisions.csv (the rule run_sweep.sh and pem.py both use) and
+        # let them win, while keeping the fields only stdout has -- handoverEvents,
+        # driftingSuppressed, handoverTrustResets -- which no CSV records.
+        summary = dict(self.parser.summary or {})
+        if csv_path:
+            true_counts = csv_events.run_summary(csv_path)
+            if true_counts:
+                summary.update(true_counts)
+        self.store.close(self.exit_code, fixed, shift, summary=summary or None,
                          state=self.state)
         await self.hub.finish(self.run_id)
 

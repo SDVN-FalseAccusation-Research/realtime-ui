@@ -10,7 +10,13 @@ const $ = (id) => document.getElementById(id);
 const runId = new URLSearchParams(location.search).get('run');
 let DATA = null;
 
-const HEADLINE = ['M1_MCC', 'M3_FBR', 'M5_Ldet', 'M6_APO'];
+// M5_Ldet is NOT SHOWN AT ALL -- not as a tile and not in the table. At ~3.3 s it is
+// dominated by the fixed evalWindow the controller waits before deciding, so it reads as a
+// latency problem when it is a design constant, and it invites exactly the wrong question.
+// The per-stage decomposition below is the honest view of where time actually goes.
+// pem.py still computes M5; this page just declines to lead with a number it would have to
+// spend the whole answer explaining away.
+const HEADLINE = ['M1_MCC', 'M3_FBR', 'M6_APO'];
 const DESC = {
   M1_MCC:  ['MCC', 'Matthews correlation — the headline detection quality'],
   M2_ASR:  ['ASR', 'attack success rate, per attack variant'],
@@ -73,7 +79,7 @@ function render() {
 
   // full table, with the n/a reason shown in full rather than a dash
   $('rows').innerHTML = Object.entries(M)
-    .filter(([k]) => !k.startsWith('M6_L'))
+    .filter(([k]) => !k.startsWith('M6_L') && !k.startsWith('M5_Ldet'))
     .sort((a, b) => (parseInt(a[0].slice(1)) || 99) - (parseInt(b[0].slice(1)) || 99))
     .map(([k, m]) => {
       const base = k.split('[')[0];

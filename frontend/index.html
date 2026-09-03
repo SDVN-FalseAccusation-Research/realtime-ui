@@ -40,9 +40,11 @@
 
         <div class="field">
           <label>Mobility</label>
+          <!-- Manhattan only. The synthetic grid is still a valid server-side trace, but
+               every banked result and the whole demo use the SUMO Manhattan scenario, so
+               offering the other one only invites an unrepeatable run. -->
           <div class="row2">
             <button id="trace-manhattan" aria-pressed="true">Manhattan map</button>
-            <button id="trace-synthetic" aria-pressed="false">Synthetic grid</button>
           </div>
         </div>
 

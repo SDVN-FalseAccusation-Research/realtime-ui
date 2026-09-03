@@ -11,6 +11,10 @@
 
 const $ = (id) => document.getElementById(id);
 
+// EIGHT variants: the four false-accusation attacks on the data plane and their
+// control-plane twins. report_tamper_rsu is deliberately absent -- it is an RSU
+// custody scenario, not one of the attack variants this work evaluates. The server
+// still accepts it (flags.ATTACK_TYPES), so the banked run stays replayable.
 const ATTACK_META = {
   single_data:      ['Single', 'data'],
   sybil_data:       ['Sybil', 'data'],
@@ -20,7 +24,6 @@ const ATTACK_META = {
   sybil_control:    ['Sybil', 'control'],
   timing_control:   ['Timing', 'control'],
   evidence_control: ['Evidence spoof', 'control'],
-  report_tamper_rsu:['RSU tamper', 'custody'],
 };
 
 // Which advanced flags belong on which tab. Anything not listed lands on "Other", so a new
@@ -137,23 +140,21 @@ function renderEstimate() {
   const w = [];
   if (S.cfg.trace === 'manhattan' && S.cfg.numVehicles > 200)
     w.push('The Manhattan trace has only 200 vehicles — the rest would sit at the origin.');
-  if (S.cfg.numRsus >= 60 && S.cfg.numVehicles >= 190)
-    w.push('≥60 RSUs with ~200 vehicles currently crashes the simulator (open bug TASK 5b). ' +
-           'Use 56.');
   if (S.cfg.trace === 'manhattan' && (+S.adv.warmupAccusationStart || 35) < 30)
     w.push('Vehicles are still being inserted before t≈42 s — start accusations after 30 s.');
   if (e.simTime > 1199)
     w.push(`Simulated time ${Math.round(e.simTime)} s exceeds the trace (1199 s); ` +
            'vehicles would freeze at their last waypoint.');
-  if (e.spacing && e.spacing > window_guard())
-    w.push('Attack window widened by the simulator to keep ≥3.5 s between events.');
   $('warnings').innerHTML = w.map(t => `<div class="warnbox">${t}</div>`).join('');
 }
-function window_guard() { return (+S.cfg.attackWindow || 300) / Math.max(1, estimate().opportunities); }
 
 /* -------------------------------------------------------------------- render --- */
 function renderAttacks() {
-  $('attack-grid').innerHTML = S.meta.attack_types.map(a => {
+  // ATTACK_META is the allow-list, not just a label table: the server still offers
+  // report_tamper_rsu (so its banked run stays replayable), but it is an RSU custody
+  // scenario rather than one of the eight variants this work evaluates, so it must not
+  // appear as something a lecturer can pick.
+  $('attack-grid').innerHTML = S.meta.attack_types.filter(a => ATTACK_META[a]).map(a => {
     const [label, plane] = ATTACK_META[a] || [a, ''];
     return `<button data-atk="${a}" aria-pressed="${a === S.cfg.attackType}">
               <span class="plane">${plane}</span>${label}</button>`;
@@ -224,13 +225,48 @@ function applyPreset(key) {
 
 function renderTrace() {
   $('trace-manhattan').setAttribute('aria-pressed', S.cfg.trace === 'manhattan');
-  $('trace-synthetic').setAttribute('aria-pressed', S.cfg.trace === 'synthetic');
 }
 
 /* Run tools/demo_stack.sh reset from the page. ~80 s, so it is started and then polled;
    a held-open request that long invites a browser or proxy timeout and leaves you unsure
    whether it worked. The server refuses while a simulation is running, because the reset
    stops the bridge and would kill it. */
+/* The reset / system-check result panel. It is modeless on purpose -- you read it and get
+   on with the run -- but it had no way to close, so it sat over the Run button until the
+   page was reloaded. Dismissable by the x, by clicking outside it, and by Escape; never
+   while a reset is still in flight, since that is the one time the text is load-bearing. */
+let _panelBusy = false;
+
+function panelShow(head, body = '', cls = '', busy = false) {
+  const el = $('syscheck');
+  if (!el) return;
+  _panelBusy = busy;
+  el.className = cls;
+  el.hidden = false;
+  el.innerHTML =
+    `<div class="sc-head">${head}${busy ? '' :
+       '<button class="sc-x" id="sc-close" title="Dismiss" aria-label="Dismiss">&times;</button>'}</div>` +
+    body;
+  const x = $('sc-close');
+  if (x) x.onclick = (e) => { e.stopPropagation(); panelHide(); };
+}
+
+function panelHide() {
+  const el = $('syscheck');
+  if (!el || _panelBusy) return;
+  el.hidden = true;
+  el.innerHTML = '';
+}
+
+document.addEventListener('click', (e) => {
+  const el = $('syscheck');
+  if (!el || el.hidden || _panelBusy) return;
+  // Ignore the two buttons that open it, or the click that opened it would close it again.
+  if (el.contains(e.target) || e.target.closest('#reset-btn, #check-btn')) return;
+  panelHide();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') panelHide(); });
+
 /** Re-read health and re-render the parts that depend on it. */
 async function refreshHealth() {
   try {
@@ -241,21 +277,18 @@ async function refreshHealth() {
 }
 
 async function runStackReset() {
-  const el = $('syscheck'), btn = $('reset-btn');
-  el.hidden = false;
-  el.className = '';
+  const btn = $('reset-btn');
   btn.disabled = true;
-  const show = (head, body = '') =>
-    el.innerHTML = `<div class="sc-head">${head}</div>${body}`;
-  show('resetting the ledger… (~80 s: Fabric down → up → deploy, then the bridge)');
+  // busy=true suppresses the close affordances: mid-reset is the one time the panel's text
+  // is load-bearing, and dismissing it would leave the operator with no progress at all.
+  panelShow('resetting the ledger… (~80 s: Fabric down → up → deploy, then the bridge)',
+            '', '', true);
 
   try {
     const r = await fetch('/api/stack/reset', { method: 'POST' });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
-      el.className = 'nogo';
-      show(`✕ ${d.detail || r.status + ' ' + r.statusText}`);
-      btn.disabled = false;
+      panelShow(`✕ ${d.detail || r.status + ' ' + r.statusText}`, '', 'nogo');
       return;
     }
     // Poll until it finishes. The log tail comes back with the status, so a failure is
@@ -263,27 +296,29 @@ async function runStackReset() {
     for (;;) {
       await new Promise(r2 => setTimeout(r2, 2000));
       const st = await (await fetch('/api/stack/reset')).json();
-      if (st.state === 'running') { show('resetting the ledger… still going'); continue; }
+      if (st.state === 'running') {
+        panelShow('resetting the ledger… still going', '', '', true);
+        continue;
+      }
       if (st.state === 'ok') {
-        el.className = 'go';
-        show('✓ ledger reset — running the system check…');
+        panelShow('✓ ledger reset — running the system check…', '', 'go', true);
         // The defence toggles are gated on /api/health, and the page's copy is now 80 s
         // stale: without this they stay greyed out until the next poll, which reads as the
         // reset not having worked.
         await refreshHealth();
+        _panelBusy = false;
         await runSystemCheck();               // prove it, do not just claim it
       } else {
-        el.className = 'nogo';
-        show(`✕ reset failed (exit ${st.exit_code})`,
-             `<pre class="sc-log">${(st.log || '').replace(/[<&]/g, c =>
-                ({'<': '&lt;', '&': '&amp;'}[c]))}</pre>`);
+        panelShow(`✕ reset failed (exit ${st.exit_code})`,
+                  `<pre class="sc-log">${(st.log || '').replace(/[<&]/g, c =>
+                     ({'<': '&lt;', '&': '&amp;'}[c]))}</pre>`, 'nogo');
       }
       break;
     }
   } catch (e) {
-    el.className = 'nogo';
-    show(`✕ ${e}`);
+    panelShow(`✕ ${e}`, '', 'nogo');
   } finally {
+    _panelBusy = false;
     btn.disabled = false;
   }
 }
@@ -292,10 +327,7 @@ async function runStackReset() {
    deliberately does NOT re-probe the sidecars — the bridge's own startup log is the evidence
    that it reached all three, and an idle probe is what wedged the zk-STARK sidecar once. */
 async function runSystemCheck() {
-  const el = $('syscheck');
-  el.hidden = false;
-  el.className = '';
-  el.innerHTML = '<div class="sc-head">checking…</div>';
+  panelShow('checking…', '', '', true);
   let d;
   try {
     const r = await fetch('/api/systemcheck');
@@ -306,20 +338,18 @@ async function runSystemCheck() {
     d = await r.json();
     if (!Array.isArray(d.items)) throw new Error('unexpected response shape');
   } catch (e) {
-    el.className = 'nogo';
-    el.innerHTML = `<div class="sc-head">✕ could not run the check — ${e}</div>`;
+    panelShow(`✕ could not run the check — ${e}`, '', 'nogo');
     return;
   }
-  el.className = d.go ? 'go' : 'nogo';
-  el.innerHTML =
-    `<div class="sc-head">${d.go ? '✓ GO — every check passed'
-                                 : '✕ NO-GO — ' + d.blocking.join(', ')}</div>` +
+  panelShow(
+    d.go ? '✓ GO — every check passed' : '✕ NO-GO — ' + d.blocking.join(', '),
     d.items.map(i => `<div class="sc-item ${i.ok ? 'ok' : 'bad'}">
         <span class="mk">${i.ok ? '✓' : '✕'}</span>
         <span><span class="nm">${i.name}</span><span class="dt">${i.detail}</span></span>
       </div>`).join('') +
     (d.go ? '' : `<div class="sc-foot"><code>realtime-ui/tools/demo_stack.sh ${
-        d.blocking.includes('Ledger is fresh') ? 'reset' : 'up'}</code></div>`);
+        d.blocking.includes('Ledger is fresh') ? 'reset' : 'up'}</code></div>`),
+    d.go ? 'go' : 'nogo');
 }
 
 function renderHealth() {
@@ -496,7 +526,6 @@ async function boot() {
     S.cfg._preset = null; renderPresets(); refresh();
   };
   $('trace-manhattan').onclick = () => { S.cfg.trace = 'manhattan'; renderTrace(); refresh(); };
-  $('trace-synthetic').onclick = () => { S.cfg.trace = 'synthetic'; renderTrace(); refresh(); };
 
   $('check-btn').onclick = runSystemCheck;
   $('reset-btn').onclick = runStackReset;

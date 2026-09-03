@@ -298,3 +298,13 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .68); }
   background: var(--panel-3); border-top: 1px solid var(--line); white-space: pre-wrap;
 }
 #reset-btn[disabled] { opacity: .5; cursor: progress; }
+
+/* Dismiss affordance on the reset / system-check panel. Suppressed while a reset is in
+   flight — that is the one time the panel's text is the only progress the operator has. */
+#syscheck .sc-head { position: relative; padding-right: 30px; }
+#syscheck .sc-x {
+  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+  background: none; border: 0; color: inherit; opacity: .65;
+  font: 16px/1 var(--font); cursor: pointer; padding: 2px 5px; border-radius: 4px;
+}
+#syscheck .sc-x:hover { opacity: 1; background: rgba(255,255,255,.10); }

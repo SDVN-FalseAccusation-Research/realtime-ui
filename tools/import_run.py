@@ -271,21 +271,9 @@ def _derive_id(run_dir, cfg, prefix=None):
 
 
 def _summary(dec_path):
-    """The same shape the live path stores, so the History page needs no special case.
-
-    ASR here follows run_sweep.sh: only accusations against an HONEST victim are attacks.
-    A genuine report being accepted is correct behaviour, never an attack success.
-    """
-    rows = [r for r in csv_events._rows(dec_path)
-            if (r.get("submitted") or "").strip() == "1"
-            and (r.get("is_warmup") or "").strip() == "0"]
-    if not rows:
-        return None
-    atk = [r for r in rows if (r.get("victim_honest") or "").strip() == "1"]
-    acc = sum(1 for r in atk if (r.get("accepted") or "").strip() == "1")
-    return {"submitted": len(atk), "accepted": acc,
-            "successRate": (acc / len(atk)) if atk else 0.0,
-            "events_total": len(rows)}
+    """Delegates to csv_events.run_summary -- ONE implementation, shared with the live path
+    in runner.py, so the two can never drift apart on what counts as an attack."""
+    return csv_events.run_summary(dec_path)
 
 
 # -------------------------------------------------------------------------- CLI -----

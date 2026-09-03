@@ -233,18 +233,17 @@ def get_components(run_id: str):
 
 
 @app.get("/api/runs/{run_id}/component/{name}")
-def get_component(run_id: str, name: str,
-                  event: int = Query(None), limit: int = Query(400, ge=1, le=5000)):
+def get_component(run_id: str, name: str):
     """One component's detail: what went in, what came out, what it changed.
 
-    Read server-side from the run's CSVs — `_trust_refresh.csv` is 11 MB and
-    `_reputation.csv` 153 MB, so neither is ever shipped whole to a browser.
+    Read server-side from the run's CSVs, and only the small per-event ones — nothing large
+    is ever shipped whole to a browser. (The `event`/`limit` parameters went with the
+    Reputation view; every remaining component returns its whole, small table.)
     """
     if name not in components.NAMES:
         raise HTTPException(404, f"unknown component; expected one of "
                                  f"{', '.join(components.NAMES)}")
-    kw = {"event_id": event, "limit": limit} if name == "reputation" else {}
-    out = components.build(run_id, name, **kw)
+    out = components.build(run_id, name)
     if out is None:
         raise HTTPException(404, "no such run")
     return out

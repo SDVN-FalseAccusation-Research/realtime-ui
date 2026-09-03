@@ -21,7 +21,11 @@ import os
 import config
 import csv_events as C
 
-NAMES = ["pqc", "zkp", "gnn", "llm", "chain", "reputation", "keymgmt"]
+# Reputation / TFMD is deliberately NOT here. It is the trust mechanism the attack
+# targets, not one of the defence components this work contributes, and on a
+# UI-launched run it could never show anything anyway: --liteLogs=1 is forced and
+# logger.cc only writes _reputation.csv / _trust_refresh.csv on the non-lite path.
+NAMES = ["pqc", "zkp", "gnn", "llm", "chain", "keymgmt"]
 
 ROLES = {
     "pqc":  ("Post-quantum signatures",
@@ -34,8 +38,6 @@ ROLES = {
              "Explainable second opinion on GNN-flagged accusations only."),
     "chain": ("Blockchain SC1–SC4",
               "Seals evidence before the controller acts, then audits the outcome against it."),
-    "reputation": ("Reputation / TFMD",
-                   "Emergent trust Rt → Rec → GLSim → Tr, the thing the attack tries to poison."),
     "keymgmt": ("Key management",
                 "Threshold RA via DKG, plus a per-zone logical key hierarchy."),
 }
@@ -404,36 +406,7 @@ def chain(d, meta):
                       "ordering is what defeats control-plane attacks."]}
 
 
-# ------------------------------------------------------------------ reputation ------
-def reputation(d, meta, event_id=None, limit=400):
-    path = C.find(d, "trust_refresh")
-    if not path:
-        return {"available": False, "summary": {}, "rows": [],
-                "notes": ["_trust_refresh.csv is absent — this run used --liteLogs=1, "
-                          "which skips the three heavy per-pair CSVs."]}
-    rows = C.trust_refresh_rows(path, event_id, limit)
-    all_rows = C.trust_refresh_rows(path, None, 10 ** 7)
-    drops = [r for r in all_rows if r["delta"] < 0]
-    return {"available": True,
-            "summary": {
-                "updates": len(all_rows), "showing": len(rows),
-                "decreases": len(drops),
-                "mean_delta": round(sum(r["delta"] for r in all_rows) / len(all_rows), 5)
-                if all_rows else 0,
-                "worst_drop": round(min((r["delta"] for r in all_rows), default=0), 5),
-                "chain": "Rt → Rec → GLSim → Tr",
-                "params": {k: _cfg(meta, k) for k in
-                           ("eta", "beta", "zeta", "gamma", "penalty",
-                            "blacklistThreshold", "initialGlobalTrust")},
-            },
-            "rows": rows,
-            "notes": ["Each row is one trust update: the GLSim similarity that drove it and "
-                      "the old → new trust it produced. This is the file with an event_id.",
-                      "_reputation.csv holds the fuller n×n snapshot but is ~153 MB and "
-                      "carries no event_id, so it is not used here."]}
-
-
-# --------------------------------------------------------------------- keymgmt ------
+# ------------------------------------------------------------------- key mgmt ------
 def keymgmt(d, meta):
     lkh = C.lkh_summary(C.find(d, "lkh"))
     dkg = None
@@ -466,7 +439,7 @@ def keymgmt(d, meta):
 
 
 BUILDERS = {"pqc": pqc, "zkp": zkp, "gnn": gnn, "llm": llm,
-            "chain": chain, "reputation": reputation, "keymgmt": keymgmt}
+            "chain": chain, "keymgmt": keymgmt}
 
 
 def build(run_id, name, **kw):
@@ -475,7 +448,7 @@ def build(run_id, name, **kw):
     d, meta = run_paths(run_id)
     if not os.path.isdir(d):
         return None
-    out = BUILDERS[name](d, meta, **kw) if name == "reputation" else BUILDERS[name](d, meta)
+    out = BUILDERS[name](d, meta, **kw)
     label, role = ROLES[name]
     out.update(component=name, label=label, role=role, run_id=run_id)
     return out
@@ -502,7 +475,6 @@ def overview(run_id):
             "llm": lambda: f"{s.get('false_accusation', 0)} false-accusation verdicts",
             "chain": lambda: f"{s.get('submissions', 0)} submissions · "
                              f"{s.get('divergence', 0)} divergent",
-            "reputation": lambda: f"{s.get('updates', 0)} trust updates",
             "keymgmt": lambda: f"{(s.get('lkh') or {}).get('events', 0)} re-key events",
         }[n]
         cards.append({"component": n, "label": ROLES[n][0], "role": ROLES[n][1],

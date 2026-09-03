@@ -329,6 +329,36 @@ def lkh_events(path, src=None, rows=None):
     return out
 
 
+def run_summary(path):
+    """The run's headline counts, computed from _decisions.csv.
+
+    ASR FOLLOWS run_sweep.sh: only accusations against an HONEST victim are attacks. A
+    genuine report being accepted is CORRECT BEHAVIOUR, never an attack success.
+
+    This exists because the simulator's own `successRate=` line is wrong whenever genuine
+    accusations are enabled. apps.cc:1372 increments falseAccusationsSubmitted guarded only
+    on `!rec.isWarmup`, with no victim_honest filter, so every genuine accusation counts as
+    an attack attempt and a correctly-accepted one counts as a successful attack. Measured
+    on three runs with --misbehaveModel=1: the line reported 0.5345 / 0.3562 / 0.8889 where
+    the truth was 0.1724 / 0.0000 / 0.0000 -- the last displaying 89% attack success when
+    ZERO attacks succeeded. Runs without genuine traffic are unaffected, which is why this
+    hid for so long.
+
+    pem.py:m2_asr already filters this way, so the Metrics page was always right and only
+    the History page was wrong. One implementation, two callers (runner.py and
+    tools/import_run.py), so they cannot drift apart again.
+    """
+    rows = [r for r in _rows(path)
+            if _b(r, "submitted") and not _b(r, "is_warmup")]
+    if not rows:
+        return None
+    atk = [r for r in rows if _b(r, "victim_honest")]
+    acc = sum(1 for r in atk if _b(r, "accepted"))
+    return {"submitted": len(atk), "accepted": acc,
+            "successRate": (acc / len(atk)) if atk else 0.0,
+            "events_total": len(rows)}
+
+
 # ======================================================================================
 # Readers used by the component detail pages (components.py) rather than the event stream.
 # These files are either too large for events.jsonl (_trust_refresh.csv is 11 MB) or carry

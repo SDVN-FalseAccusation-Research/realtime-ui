@@ -220,31 +220,6 @@ const VIEWS = {
       notes(d.notes);
   },
 
-  reputation(d) {
-    const s = d.summary;
-    const rows = d.rows.slice(0, 300).map(r => `<tr>
-      <td class="num">${r.event}</td><td class="num">${n2(r.t)}</td>
-      <td class="num">V${r.observer}</td><td class="num">V${r.reporter}</td>
-      <td class="num">${n3(r.glsim)}</td>
-      <td class="num">${n3(r.old_tr)} → ${n3(r.new_tr)}</td>
-      <td class="num ${r.delta < 0 ? 'acc' : 'blk'}">${r.delta > 0 ? '+' : ''}${n3(r.delta)}</td>
-      <td class="reason">${esc(r.source)}</td></tr>`).join('');
-    return `<div class="kpi-row">
-        ${tile('trust updates', s.updates, `showing ${s.showing}`)}
-        ${tile('decreases', s.decreases, 'trust lost')}
-        ${tile('mean change', n4(s.mean_delta))}
-        ${tile('worst drop', n4(s.worst_drop), '', 'bad')}
-      </div>` +
-      card('The chain', `<p class="kpi-note" style="font-size:13px">${esc(s.chain)}</p>
-        <dl class="def-list">${Object.entries(s.params)
-          .filter(([, v]) => v !== null && v !== undefined)
-          .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`) +
-      card('What it changed', table(
-        [[0, 'event', 'num'], [0, 't', 'num'], [0, 'observer', 'num'], [0, 'reporter', 'num'],
-         [0, 'GLSim', 'num'], [0, 'trust', 'num'], [0, 'Δ', 'num'], [0, 'source']], rows)) +
-      notes(d.notes);
-  },
-
   keymgmt(d) {
     const s = d.summary, l = s.lkh || {};
     return `<div class="kpi-row">
