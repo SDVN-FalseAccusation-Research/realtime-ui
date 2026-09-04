@@ -35,6 +35,12 @@ const Dispatch = {
   ledger: [],
   seen: new Set(),        // decision event ids already applied (back-fill guard)
   seenAcc: new Set(),     // accusation ids already applied -- see the handler
+  // EVERY accusation by id, not just the one on screen. `current` is the last accusation
+  // APPLIED, and pump() can apply several in one frame, so a verdict routinely arrives when
+  // `current` has already moved on -- an attack fires, the interleaved genuine report fires
+  // ~half a step later, and the attack's verdict lands third. Keyed lookup is what lets that
+  // verdict still be attributed to its own accuser and victim instead of logging "V? -> V?".
+  byEvent: {},
 
   reset() {
     this.cursor = 0;
@@ -45,6 +51,7 @@ const Dispatch = {
     this.ledger = [];
     this.seen.clear();
     this.seenAcc.clear();
+    this.byEvent = {};
     Sidebar.clearHistory();
     Ribbon.reset();
     Sidebar.event(null);
@@ -148,6 +155,7 @@ const Dispatch = {
       Ribbon.reset();
       this.pipeline = [];
       this.current = ev;
+      if (ev.event !== undefined) this.byEvent[ev.event] = ev;
       this.counts.total++;
 
       const a = ev.accuser.v, v = ev.victim.v;
@@ -210,6 +218,13 @@ const Dispatch = {
       this.seen.add(ev.event);
 
       const cur = this.current;
+      // The accusation THIS verdict belongs to, which is not necessarily the one on screen.
+      const acc = this.byEvent[ev.event] || null;
+      // victim_honest is the authoritative attack/genuine flag (same rule as campaign.py and
+      // run_sweep.sh). A genuine report being ACCEPTED is correct behaviour, not a success
+      // for the attacker -- so `accepted` alone says nothing about whether this went well.
+      const isAttack = ev.victim_honest !== false;
+      const wentWell = isAttack ? !ev.accepted : ev.accepted;
       const accepted = ev.accepted;
       if (accepted) this.counts.accepted++; else this.counts.blocked++;
 
@@ -220,7 +235,7 @@ const Dispatch = {
           `${ev.reports.true + ev.reports.false} · ` +
           `<span class="good">${ev.reports.true}T</span> / ` +
           `<span class="bad">${ev.reports.false}F</span>`);
-        Sidebar.verdict(accepted, ev.stopped_by);
+        Sidebar.verdict(accepted, ev.stopped_by, isAttack);
         Ribbon.set('rsu', 'done', `${ev.reports.true + ev.reports.false} rpts`);
         // The buffer was counting geometrically-inferred reporters; _decisions.csv knows
         // how many reports the RSU actually took and how they split. Correct it.
@@ -228,8 +243,11 @@ const Dispatch = {
           World.setRsuBuffer(cur._rsu, ev.reports.true + ev.reports.false,
                              { t: ev.reports.true, f: ev.reports.false });
         }
-        Ribbon.set('outcome', accepted ? 'failed' : 'blocked',
-                   accepted ? 'ACCEPTED' : 'BLOCKED');
+        // Green = the system did the right thing, which for a GENUINE report means the
+        // opposite of what it means for an attack.
+        Ribbon.set('outcome', wentWell ? 'blocked' : 'failed',
+                   isAttack ? (accepted ? 'ACCEPTED' : 'BLOCKED')
+                            : (accepted ? 'UPHELD' : 'FALSE POSITIVE'));
 
         // Per-layer rows. Latencies are real (from the CSV); a zero means the layer did
         // not run for this event, which for the GNN on a control-plane attack is correct
@@ -293,11 +311,12 @@ const Dispatch = {
 
         if (animate) {
           const ref = ev.controller && World.controllers[ev.controller.c]
-            ? { c: ev.controller.c } : (cur ? { v: cur.victim.v } : null);
+            ? { c: ev.controller.c } : (acc ? { v: acc.victim.v } : null);
           if (ref) {
-            Fx.ring(ref, accepted ? 'danger' : 'blocked', { r: 300, dur: 900 });
-            Fx.tag(ref, accepted ? 'ACCEPTED' : 'BLOCKED',
-                   { kind: accepted ? 'danger' : 'blocked' });
+            Fx.ring(ref, wentWell ? 'blocked' : 'danger', { r: 300, dur: 900 });
+            Fx.tag(ref, isAttack ? (accepted ? 'ACCEPTED' : 'BLOCKED')
+                                 : (accepted ? 'UPHELD' : 'FALSE POSITIVE'),
+                   { kind: wentWell ? 'blocked' : 'danger' });
           }
           if (cur && cur._rsu !== undefined && ev.controller)
             Fx.packet({ r: cur._rsu }, { c: ev.controller.c }, 'bundle',
@@ -305,14 +324,17 @@ const Dispatch = {
         }
       }
 
-      if (ev.blacklisted && cur) World.setState(cur.victim.v, 'blacklisted');
-      if (ev.trust_after !== undefined && cur) World.setTrust(cur.victim.v, ev.trust_after);
+      // `acc`, not `cur`: blacklisting the vehicle that happens to be on screen instead of
+      // the one this verdict is about would mark the wrong car.
+      if (ev.blacklisted && acc) World.setState(acc.victim.v, 'blacklisted');
+      if (ev.trust_after !== undefined && acc) World.setTrust(acc.victim.v, ev.trust_after);
 
       Sidebar.pushHistory({
         event: ev.event,
-        accuser: cur && cur.event === ev.event ? cur.accuser.v : '?',
-        victim: cur && cur.event === ev.event ? cur.victim.v : '?',
-        accepted, by: ev.stopped_by,
+        accuser: acc ? acc.accuser.v : '?',
+        victim: acc ? acc.victim.v : '?',
+        kind: acc ? acc.kind : (isAttack ? 'attack' : 'genuine'),
+        accepted, wentWell, by: ev.stopped_by,
       });
       Sidebar.status(this.cfg, this.counts, Clock.fmt());
     },

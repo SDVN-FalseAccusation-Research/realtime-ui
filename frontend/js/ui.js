@@ -130,12 +130,21 @@ const Sidebar = {
     if (n) n.innerHTML = html;
   },
 
-  verdict(accepted, by) {
+  /* GREEN MEANS THE SYSTEM DID THE RIGHT THING, and for a GENUINE report that is the
+     opposite of what it means for an attack: a genuine report being accepted is correct,
+     and one being blocked is a false positive. Reading `accepted` alone got this backwards
+     -- it painted every suppressed genuine report green, which on timing_data_p80 (FPR
+     0.68) would have shown two thirds of the false positives as defence successes. */
+  verdict(accepted, by, isAttack = true) {
     const n = document.getElementById('sb-verdict');
     if (!n) return;
-    n.innerHTML = accepted
-      ? `<span>verdict</span><b class="bad">ACCEPTED — attack succeeded</b>`
-      : `<span>verdict</span><b class="good">BLOCKED${by ? ' by ' + by.toUpperCase() : ''}</b>`;
+    const good = isAttack ? !accepted : accepted;
+    const text = isAttack
+      ? (accepted ? 'ACCEPTED — attack succeeded'
+                  : `BLOCKED${by ? ' by ' + by.toUpperCase() : ''}`)
+      : (accepted ? 'UPHELD — misbehaver punished'
+                  : `FALSE POSITIVE — genuine report suppressed${by ? ' by ' + by.toUpperCase() : ''}`);
+    n.innerHTML = `<span>verdict</span><b class="${good ? 'good' : 'bad'}">${text}</b>`;
   },
 
   pipeline(rows) {
@@ -154,14 +163,27 @@ const Sidebar = {
        </div>`).join('') : '<p class="muted">Blockchain layer not enabled.</p>';
   },
 
+  /* Every verdict lands here, including one whose accusation is no longer the event on
+     screen -- which is the normal case, since attacks and genuine reports are interleaved
+     and pump() can apply several accusations in one frame. Each row names its own kind, so
+     a false accusation is never hidden behind the genuine report that followed it. */
   pushHistory(e) {
     this.history.unshift(e);
-    this.el.history.innerHTML = this.history.slice(0, 40).map(h =>
-      `<div class="hist ${h.accepted ? 'bad' : 'good'}">
+    const KIND = { attack: 'FALSE', genuine: 'GENUINE', warmup: 'WARM-UP' };
+    this.el.history.innerHTML = this.history.slice(0, 40).map(h => {
+      const kind = KIND[h.kind] || (h.kind || '').toUpperCase();
+      const outcome = h.kind === 'attack' || h.kind === undefined
+        ? (h.accepted ? 'ACCEPTED' : 'BLOCKED' + (h.by ? ' · ' + h.by : ''))
+        : (h.accepted ? 'UPHELD' : 'FALSE POSITIVE' + (h.by ? ' · ' + h.by : ''));
+      return `<div class="hist ${h.wentWell === undefined
+                                   ? (h.accepted ? 'bad' : 'good')
+                                   : (h.wentWell ? 'good' : 'bad')}">
          <span class="mono">#${h.event}</span>
+         <span class="hk ${h.kind || 'attack'}">${kind}</span>
          V${h.accuser} → V${h.victim}
-         <span class="tag">${h.accepted ? 'ACCEPTED' : 'BLOCKED' + (h.by ? ' · ' + h.by : '')}</span>
-       </div>`).join('');
+         <span class="tag">${outcome}</span>
+       </div>`;
+    }).join('');
   },
 
   clearHistory() { this.history = []; this.el.history.innerHTML = ''; },

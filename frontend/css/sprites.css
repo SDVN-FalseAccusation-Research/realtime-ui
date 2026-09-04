@@ -257,3 +257,14 @@ input[type="range"]:focus { outline: none; }
 
 #scrub-wrap { pointer-events: none; }
 #scrub-wrap #scrub, #scrub-wrap #buffered { pointer-events: auto; }
+
+/* Kind chip on a sidebar history row. Attacks and genuine reports are interleaved, so a row
+   that does not say which it is cannot be read: "BLOCKED" is a success for one and a false
+   positive for the other. */
+.hist .hk {
+  font: 600 8px var(--font); letter-spacing: .5px; padding: 1px 4px;
+  border-radius: 3px; margin-right: 2px; vertical-align: 1px;
+}
+.hist .hk.attack  { background: color-mix(in srgb, var(--attacker) 26%, transparent);   color: #ffd9d6; }
+.hist .hk.genuine { background: color-mix(in srgb, var(--misbehaver) 26%, transparent); color: #ecd9ff; }
+.hist .hk.warmup  { background: color-mix(in srgb, var(--info) 22%, transparent);       color: #d6ecff; }
